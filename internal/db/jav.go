@@ -2087,7 +2087,6 @@ func GetJavIdolSummary(ctx context.Context, idolID int64, directoryIDs []int64) 
 		Joins("LEFT JOIN jav cover_jav ON cover_jav.id = ji.cover_jav_id").
 		Joins("LEFT JOIN (?) favorite_counts ON favorite_counts.jav_idol_id = ji.id", buildIdolFavoriteCountQuery(ctx)).
 		Where("ji.id = ?", idolID).
-		Where("solo_idols.cover_code IS NOT NULL").
 		Limit(1).
 		Scan(&item)
 	if tx.Error != nil {
@@ -2176,9 +2175,9 @@ func ListJavIdols(ctx context.Context, search, sort string, limit, offset int, d
 	soloIdols := buildVisibleSoloIdolCoverQuery(ctx, directoryIDs)
 	visibleIdols := buildVisibleIdolWorkCountQuery(ctx, directoryIDs)
 
-	countBase := common.DB.WithContext(ctx).
-		Table("jav_idol ji").
-		Joins("JOIN (?) visible_idols ON visible_idols.jav_idol_id = ji.id", visibleIdols)
+	// All idols are listed, including those without any visible work. Work
+	// counts come from a LEFT JOIN so idols with no works still return a row.
+	countBase := common.DB.WithContext(ctx).Table("jav_idol ji")
 	if favoriteGroupID > 0 {
 		countBase = countBase.Joins("JOIN jav_favorite_map jifm_filter ON jifm_filter.entity_id = ji.id AND jifm_filter.entity_type = ? AND jifm_filter.jav_favorite_group_id = ?", JavFavoriteEntityIdol, favoriteGroupID)
 	}
@@ -2236,23 +2235,17 @@ func ListJavIdols(ctx context.Context, search, sort string, limit, offset int, d
 	}
 	base := common.DB.WithContext(ctx).
 		Table("jav_idol ji").
+		Joins("LEFT JOIN (?) idol_work_counts ON idol_work_counts.jav_idol_id = ji.id", visibleIdols).
 		Joins("LEFT JOIN (?) solo_idols ON solo_idols.jav_idol_id = ji.id", soloIdols).
 		Joins("LEFT JOIN (?) favorite_counts ON favorite_counts.jav_idol_id = ji.id", buildIdolFavoriteCountQuery(ctx)).
-		Joins("JOIN jav_idol_map jim ON jim.jav_idol_id = ji.id").
-		Joins("JOIN jav j ON j.id = jim.jav_id").
-		Joins("JOIN video_location vl ON vl.jav_id = j.id").
-		Joins("JOIN directory d ON d.id = vl.directory_id").
-		Where(activeLocationWhereSQL("vl", "d"))
+		Joins("LEFT JOIN jav cover_jav ON cover_jav.id = ji.cover_jav_id")
 	if favoriteGroupID > 0 {
 		base = base.Joins("JOIN jav_favorite_map jifm_filter ON jifm_filter.entity_id = ji.id AND jifm_filter.entity_type = ? AND jifm_filter.jav_favorite_group_id = ?", JavFavoriteEntityIdol, favoriteGroupID)
 	}
-	base = applyDirectoryFilter(base, "vl", directoryIDs)
 	base = applyJavIdolSearch(base, search)
 	base = applyJavIdolFilters(base, filters, filterDate)
 	if err := base.
-		Joins("LEFT JOIN jav cover_jav ON cover_jav.id = ji.cover_jav_id").
-		Select("ji.id, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COUNT(DISTINCT j.id) AS work_count, ji.cover_jav_id, COALESCE(NULLIF(cover_jav.code, ''), solo_idols.cover_code) AS cover_code, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
-		Group("ji.id, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, ji.cover_jav_id, cover_jav.code, ji.cover_crop_left, solo_idols.cover_code, favorite_counts.favorite_count").
+		Select("ji.id, ji.name, ji.roman_name, ji.japanese_name, ji.chinese_name, ji.height_cm, ji.birth_date, ji.bust, ji.waist, ji.hips, ji.cup, COALESCE(idol_work_counts.work_count, 0) AS work_count, ji.cover_jav_id, COALESCE(NULLIF(cover_jav.code, ''), solo_idols.cover_code) AS cover_code, COALESCE(ji.cover_crop_left, 0.53) AS cover_crop_left, COALESCE(favorite_counts.favorite_count, 0) AS favorite_count").
 		Order(order).
 		Limit(limit).
 		Offset(offset).
@@ -2329,6 +2322,104 @@ func attachJavIdolAliases(ctx context.Context, items []JavIdolSummary) error {
 		if alias != "" {
 			items[index].Aliases = append(items[index].Aliases, alias)
 		}
+	}
+	return nil
+}
+
+// GetJavIdolAvatarNames returns the ordered name candidates used to resolve an
+// idol avatar from the Gfriends repository. Japanese names are preferred
+// because the repository keys on the original Japanese actress name.
+func GetJavIdolAvatarNames(ctx context.Context, idolID int64) ([]string, error) {
+	if idolID <= 0 {
+		return nil, errors.New("idol id must be positive")
+	}
+	var idol models.JavIdol
+	if err := common.DB.WithContext(ctx).
+		Select("id, name, roman_name, japanese_name, chinese_name").
+		Where("id = ?", idolID).
+		First(&idol).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, gorm.ErrRecordNotFound
+		}
+		return nil, fmt.Errorf("get jav idol avatar names: %w", err)
+	}
+
+	var aliases []string
+	if err := common.DB.WithContext(ctx).
+		Model(&models.JavIdolAlias{}).
+		Where("jav_idol_id = ?", idolID).
+		Order("alias ASC").
+		Pluck("alias", &aliases).Error; err != nil {
+		return nil, fmt.Errorf("load jav idol avatar aliases: %w", err)
+	}
+
+	candidates := make([]string, 0, 5+len(aliases))
+	candidates = append(candidates, idol.JapaneseName, idol.Name, idol.ChineseName, idol.RomanName)
+	candidates = append(candidates, aliases...)
+
+	names := make([]string, 0, len(candidates))
+	seen := make(map[string]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		if _, ok := seen[candidate]; ok {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		names = append(names, candidate)
+	}
+	return names, nil
+}
+
+// GetJavIdolAvatarURL returns the persisted avatar selection for an idol.
+// An empty string means auto-selection (first candidate).
+func GetJavIdolAvatarURL(ctx context.Context, idolID int64) (string, error) {
+	if idolID <= 0 {
+		return "", errors.New("idol id must be positive")
+	}
+	var idol models.JavIdol
+	if err := common.DB.WithContext(ctx).
+		Select("avatar_url").
+		Where("id = ?", idolID).
+		First(&idol).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", gorm.ErrRecordNotFound
+		}
+		return "", fmt.Errorf("get jav idol avatar url: %w", err)
+	}
+	return strings.TrimSpace(idol.AvatarURL), nil
+}
+
+// UpdateJavIdolAvatarURL persists the selected avatar URL for an idol.
+// Passing an empty string resets the idol to auto-selection.
+func UpdateJavIdolAvatarURL(ctx context.Context, idolID int64, avatarURL string) error {
+	if idolID <= 0 {
+		return errors.New("idol id must be positive")
+	}
+	avatarURL = strings.TrimSpace(avatarURL)
+	result := common.DB.WithContext(ctx).
+		Model(&models.JavIdol{}).
+		Where("id = ?", idolID).
+		Update("avatar_url", avatarURL)
+	if result.Error != nil {
+		return fmt.Errorf("update jav idol avatar url: %w", result.Error)
+	}
+	if result.RowsAffected > 0 {
+		return nil
+	}
+	// SQLite reports zero affected rows when the stored value is unchanged, so
+	// distinguish that from a missing idol explicitly.
+	var count int64
+	if err := common.DB.WithContext(ctx).
+		Model(&models.JavIdol{}).
+		Where("id = ?", idolID).
+		Count(&count).Error; err != nil {
+		return fmt.Errorf("verify jav idol: %w", err)
+	}
+	if count == 0 {
+		return gorm.ErrRecordNotFound
 	}
 	return nil
 }
@@ -3810,6 +3901,9 @@ func MergeJavIdols(ctx context.Context, canonicalID int64, sourceIDs []int64, di
 		if err := inheritJavIdolCoverTx(tx, canonical, sources); err != nil {
 			return err
 		}
+		if err := inheritJavIdolAvatarTx(tx, canonical, sources); err != nil {
+			return err
+		}
 		if err := tx.Where("id IN ?", cleanSourceIDs).Delete(&models.JavIdol{}).Error; err != nil {
 			return fmt.Errorf("delete merged jav idols: %w", err)
 		}
@@ -4071,6 +4165,25 @@ func inheritJavIdolCoverTx(tx *gorm.DB, canonical models.JavIdol, sources []mode
 				"cover_crop_left": source.CoverCropLeft,
 			}).Error; err != nil {
 			return fmt.Errorf("inherit jav idol cover: %w", err)
+		}
+		return nil
+	}
+	return nil
+}
+
+func inheritJavIdolAvatarTx(tx *gorm.DB, canonical models.JavIdol, sources []models.JavIdol) error {
+	if strings.TrimSpace(canonical.AvatarURL) != "" {
+		return nil
+	}
+	for _, source := range sources {
+		avatarURL := strings.TrimSpace(source.AvatarURL)
+		if avatarURL == "" {
+			continue
+		}
+		if err := tx.Model(&models.JavIdol{}).
+			Where("id = ?", canonical.ID).
+			Update("avatar_url", avatarURL).Error; err != nil {
+			return fmt.Errorf("inherit jav idol avatar: %w", err)
 		}
 		return nil
 	}

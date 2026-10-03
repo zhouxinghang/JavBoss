@@ -38,7 +38,6 @@ export default function JavDetail(props) {
     onOpenFavorites,
     onOpenStudioFavorites,
     onOpenSeriesFavorites,
-    handleOpenIdolCoverEditor,
     handleOpenIdolEditor,
     onManageVideoPlay,
     onManageVideoPlayAtTime,
@@ -92,7 +91,6 @@ export default function JavDetail(props) {
         onOpenIdolFavorites={onOpenFavorites}
         onOpenStudioFavorites={onOpenStudioFavorites}
         onOpenSeriesFavorites={onOpenSeriesFavorites}
-        onOpenIdolCoverEditor={handleOpenIdolCoverEditor}
         onOpenIdolEditor={handleOpenIdolEditor}
         onVideoPlay={onManageVideoPlay}
         onVideoPlayAtTime={onManageVideoPlayAtTime}

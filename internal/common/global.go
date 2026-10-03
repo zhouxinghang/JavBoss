@@ -12,6 +12,7 @@ var (
 	ScreenshotManager  *manager.ScreenshotManager
 	CoverManager       *manager.CoverManager
 	SampleImageManager *manager.SampleImageManager
+	IdolAvatarManager  *manager.IdolAvatarManager
 	StreamManager      *manager.StreamManager
 	FFmpegToolManager  *manager.FFmpegToolManager
 	AppConfig          *Config

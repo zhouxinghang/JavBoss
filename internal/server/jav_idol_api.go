@@ -16,7 +16,6 @@ import (
 	"javboss/internal/common/logging"
 	dbpkg "javboss/internal/db"
 	"javboss/internal/jav"
-	"javboss/internal/manager"
 )
 
 func listJavIdols(c *gin.Context) {
@@ -192,6 +191,10 @@ func mergeJavIdols(c *gin.Context) {
 		respondLocalizedError(c, http.StatusBadRequest, "合并女优失败，请检查所选女优是否有效", "Failed to merge idols; check the selected idols")
 		return
 	}
+	if common.IdolAvatarManager != nil {
+		common.IdolAvatarManager.Remove(req.MergeIDs...)
+	}
+
 	items := []dbpkg.JavIdolSummary{*item}
 	enrichJavIdolSummaries(c.Request.Context(), items)
 	c.JSON(http.StatusOK, items[0])
@@ -371,57 +374,15 @@ func getJavIdolJavDBURL(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"url": profileURL})
 }
 
-func enrichJavIdolSummaries(ctx context.Context, items []dbpkg.JavIdolSummary) {
-	cfg := common.AppConfig
-	coverDir := ""
-	if cfg != nil {
-		coverDir = cfg.JavCoverDir
-	}
+// enrichJavIdolSummaries normalizes idol display fields. Idol imagery now comes
+// from the Gfriends avatar endpoint instead of works, so no cover work is done here.
+func enrichJavIdolSummaries(_ context.Context, items []dbpkg.JavIdolSummary) {
 	for i := range items {
-		enrichJavIdolSummary(ctx, &items[i], coverDir)
-	}
-}
-
-func enrichJavIdolSummary(ctx context.Context, item *dbpkg.JavIdolSummary, coverDir string) {
-	item.Name = strings.TrimSpace(item.Name)
-	item.RomanName = strings.TrimSpace(item.RomanName)
-	item.JapaneseName = strings.TrimSpace(item.JapaneseName)
-	item.ChineseName = strings.TrimSpace(item.ChineseName)
-	item.CoverCode = strings.TrimSpace(item.CoverCode)
-
-	if coverDir == "" {
-		return
-	}
-	if item.CoverJavID != nil && item.CoverCode != "" {
-		if common.CoverManager != nil && !common.CoverManager.Exists(item.CoverCode) {
-			common.CoverManager.Enqueue(item.CoverCode)
-		}
-		return
-	}
-	if item.CoverCode != "" {
-		if _, ok := manager.FindCoverPath(coverDir, item.CoverCode); ok {
-			return
-		}
-	}
-	codes, err := dbpkg.ListIdolCoverCodes(ctx, item.ID, nil)
-	if err != nil {
-		logging.Error("list idol cover codes id=%d: %v", item.ID, err)
-		return
-	}
-	var chosen string
-	for _, code := range codes {
-		if _, ok := manager.FindCoverPath(coverDir, code); ok {
-			chosen = code
-			break
-		}
-	}
-	if chosen == "" && len(codes) > 0 {
-		chosen = codes[0]
-	}
-	if chosen != "" {
-		item.CoverCode = chosen
-		if common.CoverManager != nil && !common.CoverManager.Exists(chosen) {
-			common.CoverManager.Enqueue(chosen)
-		}
+		item := &items[i]
+		item.Name = strings.TrimSpace(item.Name)
+		item.RomanName = strings.TrimSpace(item.RomanName)
+		item.JapaneseName = strings.TrimSpace(item.JapaneseName)
+		item.ChineseName = strings.TrimSpace(item.ChineseName)
+		item.CoverCode = strings.TrimSpace(item.CoverCode)
 	}
 }

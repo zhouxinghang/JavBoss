@@ -168,6 +168,7 @@ type JavIdol struct {
 	UpdatedAt     time.Time  `json:"updated_at"`
 	CoverJavID    *int64     `json:"cover_jav_id" gorm:"index"`
 	CoverCropLeft float64    `json:"cover_crop_left" gorm:"not null;default:0.53"`
+	AvatarURL     string     `json:"avatar_url" gorm:"not null;default:''"`
 }
 
 type JavIdolAlias struct {

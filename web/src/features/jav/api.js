@@ -458,25 +458,47 @@ export async function updateJavIdol(id, payload) {
   return res.json()
 }
 
-export async function fetchJavIdolCoverOptions(id) {
-  const res = await apiFetch(`/jav/idols/${encodeURIComponent(id)}/cover-options`)
+export function javIdolAvatarUrl(id, version = 0) {
+  const base = `/jav/idols/${encodeURIComponent(id)}/avatar`
+  return version ? `${base}?v=${version}` : base
+}
+
+export function javIdolAvatarCandidateUrl(id, key) {
+  return `/jav/idols/${encodeURIComponent(id)}/avatar/candidates/${encodeURIComponent(key)}`
+}
+
+export async function fetchJavIdolAvatarOptions(id) {
+  const res = await apiFetch(`/jav/idols/${encodeURIComponent(id)}/avatar/options`)
   if (!res.ok) {
     throw await apiError(res)
   }
   const data = await res.json()
-  return Array.isArray(data?.items) ? data.items : []
+  return {
+    items: Array.isArray(data?.items) ? data.items : [],
+    autoSelected: Boolean(data?.auto_selected),
+  }
 }
 
-export async function updateJavIdolCover(id, { javId = 0, cropLeft = 0.53 } = {}) {
-  const res = await apiFetch(`/jav/idols/${encodeURIComponent(id)}/cover`, {
+export async function updateJavIdolAvatar(id, key = '') {
+  const res = await apiFetch(`/jav/idols/${encodeURIComponent(id)}/avatar`, {
     method: 'PUT',
     headers: jsonHeaders,
-    body: JSON.stringify({ jav_id: javId, crop_left: cropLeft }),
+    body: JSON.stringify({ key }),
   })
   if (!res.ok) {
     throw await apiError(res)
   }
-  return res.json()
+  return res.json().catch(() => ({ key }))
+}
+
+export async function refreshJavIdolAvatar(id) {
+  const res = await apiFetch(`/jav/idols/${encodeURIComponent(id)}/avatar/refresh`, {
+    method: 'POST',
+  })
+  if (!res.ok) {
+    throw await apiError(res)
+  }
+  return res.json().catch(() => ({}))
 }
 
 export async function fetchJavStudios({

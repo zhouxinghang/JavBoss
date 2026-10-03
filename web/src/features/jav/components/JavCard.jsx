@@ -130,7 +130,6 @@ export default function JavCard(props) {
     previewIdol,
     idolHoverAnchorEl,
     onOpenFavorites,
-    handleOpenIdolCoverEditor,
     handleOpenIdolEditor,
     coverAspectPercent,
     showIdolWorkCount,
@@ -599,10 +598,8 @@ export default function JavCard(props) {
                       item={previewIdol}
                       onSelectIdol={(idol) => onIdolClick?.(idol)}
                       onOpenFavorites={onOpenFavorites}
-                      onOpenCoverEditor={handleOpenIdolCoverEditor}
                       onOpenEditor={handleOpenIdolEditor}
                       href={buildIdolFilterHref(previewIdol)}
-                      coverAspectPercent={coverAspectPercent}
                       showWorkCount={showIdolWorkCount}
                       preferChineseName={preferChineseName}
                     />

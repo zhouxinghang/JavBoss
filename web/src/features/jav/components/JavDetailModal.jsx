@@ -14,7 +14,7 @@ import { IconButton, Popper, Rating, Tooltip } from '@mui/material'
 import { deleteVideoScreenshot, fetchVideoScreenshotsByIds } from '@/features/video/api'
 import { getResolvedJavSampleImages, resolveJavSampleImages } from '@/features/jav/api'
 import AppModal from '@/shared/ui/AppModal'
-import { IdolCard, getIdolCardLayoutProps } from '@/features/jav/components/JavIdolGrid'
+import { IdolCard } from '@/features/jav/components/JavIdolGrid'
 import { SeriesCard } from '@/features/jav/components/JavSeriesView'
 import { StudioCard } from '@/features/jav/components/JavStudioView'
 import VideoGrid from '@/features/video/components/VideoGrid'
@@ -482,7 +482,6 @@ export default function JavDetailModal({
   onOpenIdolFavorites,
   onOpenStudioFavorites,
   onOpenSeriesFavorites,
-  onOpenIdolCoverEditor,
   onOpenIdolEditor,
   onVideoPlay,
   onVideoPlayAtTime,
@@ -531,7 +530,6 @@ export default function JavDetailModal({
   const seriesName = String(series?.name || '').trim()
   const favoriteCount = Number(item?.favorite_count) || 0
   const emptyVideoSelection = useMemo(() => new Set(), [])
-  const { coverAspectPercent } = useMemo(() => getIdolCardLayoutProps(), [])
   const [hoverPreview, setHoverPreview] = useState(null)
   const [sampleImages, setSampleImages] = useState(() =>
     normalizeSampleImages(getResolvedJavSampleImages(itemId) || itemSampleImages)
@@ -986,10 +984,8 @@ export default function JavDetailModal({
               item={hoverPreview.item}
               onSelectIdol={onSelectIdol}
               onOpenFavorites={onOpenIdolFavorites}
-              onOpenCoverEditor={onOpenIdolCoverEditor}
               onOpenEditor={onOpenIdolEditor}
               href={buildIdolUrl?.(hoverPreview.item)}
-              coverAspectPercent={coverAspectPercent}
               showWorkCount={
                 typeof hoverPreview.item?.work_count === 'number' &&
                 hoverPreview.item.work_count > 0

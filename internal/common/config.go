@@ -12,6 +12,7 @@ type Config struct {
 	ThumbnailsDir     string `json:"thumbnails_dir"`
 	JavCoverDir       string `json:"jav_cover_dir"`
 	JavSampleImageDir string `json:"jav_sample_image_dir"`
+	JavIdolDir        string `json:"jav_idol_dir"`
 }
 
 const (
@@ -20,6 +21,7 @@ const (
 	defaultThumbnailsDir     = "data/thumbnails"
 	defaultJavCoverDir       = "data/cover"
 	defaultJavSampleImageDir = "data/sample-image"
+	defaultJavIdolDir        = "data/idol"
 )
 
 // Load returns the hardcoded configuration.
@@ -46,6 +48,7 @@ func LoadWithBaseDir(baseDir string) (*Config, error) {
 		ThumbnailsDir:     defaultThumbnailsDir,
 		JavCoverDir:       defaultJavCoverDir,
 		JavSampleImageDir: defaultJavSampleImageDir,
+		JavIdolDir:        defaultJavIdolDir,
 	}
 
 	// Resolve paths relative to the base directory.
@@ -104,6 +107,18 @@ func LoadWithBaseDir(baseDir string) (*Config, error) {
 		return nil, fmt.Errorf("create jav_sample_image_dir: %w", err)
 	}
 	cfg.JavSampleImageDir = absSampleImages
+
+	if cfg.JavIdolDir == "" {
+		cfg.JavIdolDir = filepath.Join(filepath.Dir(cfg.DatabasePath), "idol")
+	}
+	absIdols, err := resolve(cfg.JavIdolDir)
+	if err != nil {
+		return nil, fmt.Errorf("resolve jav_idol_dir: %w", err)
+	}
+	if err := os.MkdirAll(absIdols, 0o755); err != nil {
+		return nil, fmt.Errorf("create jav_idol_dir: %w", err)
+	}
+	cfg.JavIdolDir = absIdols
 
 	return &cfg, nil
 }

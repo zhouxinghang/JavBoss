@@ -1,17 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
-import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded'
+import FaceRetouchingNaturalRoundedIcon from '@mui/icons-material/FaceRetouchingNaturalRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import StarBorderRoundedIcon from '@mui/icons-material/StarBorderRounded'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
-import { fetchJavIdolOptions, mergeJavIdols, updateJavIdol } from '@/features/jav/api'
+import {
+  fetchJavIdolOptions,
+  javIdolAvatarUrl,
+  mergeJavIdols,
+  updateJavIdol,
+} from '@/features/jav/api'
 import AppModal from '@/shared/ui/AppModal'
-import JavIdolCoverModal, {
-  IDOL_COVER_DEFAULT_CROP_LEFT,
-  IDOL_COVER_VISIBLE_RATIO,
-  normalizeIdolCoverCropLeft,
-} from '@/features/jav/components/JavIdolCoverModal'
+import JavIdolAvatarModal from '@/features/jav/components/JavIdolAvatarModal'
 import { getIdolDisplayNames } from '@/utils/javIdol'
 import { openJavDBWithAssist } from '@/utils/javdb'
 import { zh } from '@/utils/i18n'
@@ -19,12 +20,13 @@ import { getErrorMessage } from '@/utils/errors'
 
 export { getIdolDisplayName, getIdolDisplayNames } from '@/utils/javIdol'
 
-const RIGHT_PORTION = IDOL_COVER_VISIBLE_RATIO
+// Compact JAV cards reuse the idol viewport ratio to derive their cover aspect.
+const IDOL_COVER_VISIBLE_RATIO = 0.47
 const IDOL_COVER_SOURCE_WIDTH = 800
 const IDOL_COVER_SOURCE_HEIGHT = 538
 
 export function getIdolCardLayoutProps() {
-  const visibleRatio = Math.min(Math.max(RIGHT_PORTION, 0.01), 1)
+  const visibleRatio = Math.min(Math.max(IDOL_COVER_VISIBLE_RATIO, 0.01), 1)
   const bgWidthPercent = (1 / visibleRatio) * 100
   const coverAspectPercent =
     (IDOL_COVER_SOURCE_HEIGHT / (IDOL_COVER_SOURCE_WIDTH * visibleRatio)) * 100
@@ -40,8 +42,6 @@ export default function JavIdolGrid({
   preferChineseName = false,
   onMerged,
 }) {
-  const { coverAspectPercent } = getIdolCardLayoutProps()
-  const [coverEditorItem, setCoverEditorItem] = useState(null)
   const [editItem, setEditItem] = useState(null)
   const [coverOverrides, setCoverOverrides] = useState(() => new Map())
   const displayItems = useMemo(() => {
@@ -74,30 +74,12 @@ export default function JavIdolGrid({
             item={item}
             onSelectIdol={onSelectIdol}
             onOpenFavorites={onOpenFavorites}
-            onOpenCoverEditor={setCoverEditorItem}
             onOpenEditor={setEditItem}
             href={buildIdolUrl?.(item)}
-            coverAspectPercent={coverAspectPercent}
             preferChineseName={preferChineseName}
           />
         ))}
       </div>
-      <JavIdolCoverModal
-        key={`cover-${coverEditorItem?.id || 'closed'}`}
-        open={Boolean(coverEditorItem)}
-        item={coverEditorItem}
-        preferChineseName={preferChineseName}
-        onClose={() => setCoverEditorItem(null)}
-        onSaved={(updated) => {
-          const id = Number(updated?.id)
-          if (!Number.isFinite(id) || id <= 0) return
-          setCoverOverrides((current) => {
-            const next = new Map(current)
-            next.set(id, updated)
-            return next
-          })
-        }}
-      />
       <JavIdolEditModal
         key={`edit-${editItem?.id || 'closed'}`}
         open={Boolean(editItem)}
@@ -127,21 +109,17 @@ export function IdolCard({
   item,
   onSelectIdol,
   onOpenFavorites,
-  onOpenCoverEditor,
   onOpenEditor,
   href,
-  coverAspectPercent,
   showWorkCount = true,
   preferChineseName = false,
 }) {
-  const coverCode = String(item?.cover_code || '').trim()
-  const cover = coverCode ? `/jav/${encodeURIComponent(coverCode)}/cover` : null
-  const coverCropLeft = normalizeIdolCoverCropLeft(
-    item?.cover_crop_left ?? IDOL_COVER_DEFAULT_CROP_LEFT
-  )
-  const coverFrameRef = useRef(null)
-  const [coverFrame, setCoverFrame] = useState({ width: 0, height: 0 })
-  const [coverImageSize, setCoverImageSize] = useState(null)
+  const idolId = Number(item?.id)
+  const hasIdolId = Number.isFinite(idolId) && idolId > 0
+  const [avatarVersion, setAvatarVersion] = useState(0)
+  const [avatarFailed, setAvatarFailed] = useState(false)
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false)
+  const avatarSrc = hasIdolId ? javIdolAvatarUrl(idolId, avatarVersion) : ''
   const workCount = item?.work_count || 0
   const favoriteCount = Number(item?.favorite_count) || 0
   const aliases = Array.isArray(item?.aliases) ? item.aliases : []
@@ -157,63 +135,10 @@ export function IdolCard({
   const { primaryName, secondaryName } = getIdolDisplayNames(item, preferChineseName)
   const metaRows = buildMetaRows({ birthDate, height, bwh, bwhDisplay, cup, aliases })
   const canOpenJavDB = Boolean(javDBSearchURL)
-  const hasCoverImageSize =
-    coverImageSize?.src === cover &&
-    Number.isFinite(coverImageSize.width) &&
-    Number.isFinite(coverImageSize.height) &&
-    coverImageSize.width > 0 &&
-    coverImageSize.height > 0
-  const hasMeasuredCoverFrame = coverFrame.width > 0 && coverFrame.height > 0
-  const coverReady = Boolean(cover && hasCoverImageSize && hasMeasuredCoverFrame)
-  const renderedCoverWidth = coverReady
-    ? coverFrame.height * (coverImageSize.width / coverImageSize.height)
-    : 0
-  const coverLeft = calculateCoverLeft({
-    cropLeft: coverCropLeft,
-    frameWidth: coverFrame.width,
-    renderedWidth: renderedCoverWidth,
-  })
 
   useEffect(() => {
-    setCoverImageSize(null)
-    if (!cover) return undefined
-
-    let cancelled = false
-    const img = new Image()
-    img.onload = () => {
-      if (cancelled) return
-      setCoverImageSize({ src: cover, width: img.naturalWidth, height: img.naturalHeight })
-    }
-    img.onerror = () => {
-      if (cancelled) return
-      setCoverImageSize(null)
-    }
-    img.src = cover
-    return () => {
-      cancelled = true
-      img.onload = null
-      img.onerror = null
-    }
-  }, [cover])
-
-  useEffect(() => {
-    const node = coverFrameRef.current
-    if (!node) return undefined
-
-    const updateFrame = () => {
-      const rect = node.getBoundingClientRect()
-      setCoverFrame({ width: rect.width, height: rect.height })
-    }
-    updateFrame()
-
-    if (!window.ResizeObserver) {
-      window.addEventListener('resize', updateFrame)
-      return () => window.removeEventListener('resize', updateFrame)
-    }
-    const observer = new window.ResizeObserver(updateFrame)
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [cover])
+    setAvatarFailed(false)
+  }, [avatarSrc])
 
   const handleClick = (e) => {
     const selection = window.getSelection?.()
@@ -235,7 +160,7 @@ export function IdolCard({
     if (!canOpenJavDB) return
     openJavDBWithAssist(javDBSearchURL, {
       target: 'idol',
-      code: coverCode,
+      code: item?.cover_code || '',
       name: javDBSearchName,
     })
   }
@@ -246,10 +171,11 @@ export function IdolCard({
     onOpenFavorites?.(item)
   }
 
-  const handleOpenCoverEditor = (event) => {
+  const handleOpenAvatarPicker = (event) => {
     event.preventDefault()
     event.stopPropagation()
-    onOpenCoverEditor?.(item)
+    if (!hasIdolId) return
+    setAvatarPickerOpen(true)
   }
 
   const handleOpenEditor = (event) => {
@@ -259,132 +185,139 @@ export function IdolCard({
   }
 
   return (
-    <a
-      href={href || '#'}
-      className="card-hover-scope group flex cursor-pointer flex-col overflow-hidden rounded-lg border bg-white shadow-sm transition hover:shadow-lg"
-      draggable={false}
-      onClick={handleClick}
-      onKeyDown={(e) => {
-        if (e.key === ' ') {
-          e.preventDefault()
-          onSelectIdol?.(item)
-        }
-      }}
-    >
-      <div
-        ref={coverFrameRef}
-        className="relative w-full overflow-hidden bg-gray-100"
-        style={{ paddingTop: `${coverAspectPercent}%` }} // 维持可见区域的原始纵横比，避免压扁
+    <>
+      <a
+        href={href || '#'}
+        className="card-hover-scope group flex cursor-pointer flex-col overflow-hidden rounded-lg border bg-white shadow-sm transition hover:shadow-lg"
+        draggable={false}
+        onClick={handleClick}
+        onKeyDown={(e) => {
+          if (e.key === ' ') {
+            e.preventDefault()
+            onSelectIdol?.(item)
+          }
+        }}
       >
-        {cover && coverReady ? (
-          <img
-            src={cover}
-            alt={primaryName}
-            className="absolute top-0 h-full max-w-none select-none"
-            style={{
-              left: `${coverLeft}px`,
-              width: 'auto',
-            }}
-            draggable={false}
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 px-3 text-center text-lg font-semibold text-gray-600">
-            {primaryName}
-          </div>
-        )}
-        {showWorkCount && (
-          <div className="absolute left-2 top-2 rounded bg-black/70 px-2 py-1 text-xs text-white">
-            {zh(`作品 ${workCount}`, `${workCount} javs`)}
-          </div>
-        )}
-        <button
-          type="button"
-          className={`card-hover-focus-visible absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full shadow-lg shadow-black/40 transition ${
-            favoriteCount > 0
-              ? 'bg-amber-400 text-amber-950 hover:bg-amber-300'
-              : 'bg-black/65 text-white opacity-0 hover:bg-black/80 group-hover:opacity-100'
-          }`}
-          title={zh('加入女优收藏夹', 'Add to idol favorite groups')}
-          aria-label={zh('加入女优收藏夹', 'Add to idol favorite groups')}
-          onClick={handleOpenFavorites}
-        >
-          {favoriteCount > 0 ? (
-            <StarRoundedIcon sx={{ fontSize: 18 }} />
+        <div className="relative w-full overflow-hidden bg-gray-100 pt-[150%]">
+          {avatarSrc && !avatarFailed ? (
+            <img
+              src={avatarSrc}
+              alt={primaryName}
+              className="absolute inset-0 h-full w-full select-none object-cover object-top"
+              loading="lazy"
+              onError={() => setAvatarFailed(true)}
+              draggable={false}
+            />
           ) : (
-            <StarBorderRoundedIcon sx={{ fontSize: 18 }} />
+            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 px-3 text-center text-lg font-semibold text-gray-600">
+              {primaryName}
+            </div>
           )}
-        </button>
-        <button
-          type="button"
-          className={`card-hover-focus-visible absolute bottom-2 left-2 flex h-7 w-7 items-center justify-center rounded-full text-white opacity-0 shadow-lg shadow-black/60 transition-opacity group-hover:opacity-100 ${
-            canOpenJavDB ? 'bg-black/70 hover:bg-black/85' : 'cursor-not-allowed bg-black/30'
-          }`}
-          title={zh('在 JavDB 中搜索女优', 'Search for idol in JavDB')}
-          aria-label={zh('在 JavDB 中搜索女优', 'Search for idol in JavDB')}
-          disabled={!canOpenJavDB}
-          onClick={handleOpenJavDB}
-        >
-          <img src="/ico/javdb.png" alt="JavDB" className="h-4 w-4" loading="lazy" />
-        </button>
-        <button
-          type="button"
-          className="card-hover-focus-visible absolute bottom-2 right-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white opacity-0 shadow-lg shadow-black/60 transition-opacity hover:bg-black/85 group-hover:opacity-100"
-          title={zh('编辑女优封面', 'Edit idol cover')}
-          aria-label={zh('编辑女优封面', 'Edit idol cover')}
-          onClick={handleOpenCoverEditor}
-        >
-          <PhotoCameraRoundedIcon sx={{ fontSize: 16 }} />
-        </button>
-        <button
-          type="button"
-          className="card-hover-focus-visible absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white opacity-0 shadow-lg shadow-black/60 transition-opacity hover:bg-black/85 group-hover:opacity-100"
-          title={zh('编辑女优信息', 'Edit idol info')}
-          aria-label={zh('编辑女优信息', 'Edit idol info')}
-          onClick={handleOpenEditor}
-        >
-          <EditRoundedIcon sx={{ fontSize: 16 }} />
-        </button>
-      </div>
-      <div className="flex flex-1 select-text flex-col gap-2 p-3">
-        <div className="flex min-w-0 items-baseline gap-1.5 leading-tight">
-          <span
-            className="min-w-0 max-w-[70%] truncate text-sm font-semibold text-gray-950"
-            title={primaryName}
+          {showWorkCount && (
+            <div className="absolute left-2 top-2 rounded bg-black/70 px-2 py-1 text-xs text-white">
+              {zh(`作品 ${workCount}`, `${workCount} javs`)}
+            </div>
+          )}
+          <button
+            type="button"
+            className={`card-hover-focus-visible absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full shadow-lg shadow-black/40 transition ${
+              favoriteCount > 0
+                ? 'bg-amber-400 text-amber-950 hover:bg-amber-300'
+                : 'bg-black/65 text-white opacity-0 hover:bg-black/80 group-hover:opacity-100'
+            }`}
+            title={zh('加入女优收藏夹', 'Add to idol favorite groups')}
+            aria-label={zh('加入女优收藏夹', 'Add to idol favorite groups')}
+            onClick={handleOpenFavorites}
           >
-            {primaryName}
-          </span>
-          {secondaryName ? (
-            <span
-              className="min-w-0 flex-1 truncate text-[11px] font-normal text-gray-500"
-              title={secondaryName}
-            >
-              {secondaryName}
-            </span>
-          ) : null}
+            {favoriteCount > 0 ? (
+              <StarRoundedIcon sx={{ fontSize: 18 }} />
+            ) : (
+              <StarBorderRoundedIcon sx={{ fontSize: 18 }} />
+            )}
+          </button>
+          <button
+            type="button"
+            className={`card-hover-focus-visible absolute bottom-2 left-2 flex h-7 w-7 items-center justify-center rounded-full text-white opacity-0 shadow-lg shadow-black/60 transition-opacity group-hover:opacity-100 ${
+              canOpenJavDB ? 'bg-black/70 hover:bg-black/85' : 'cursor-not-allowed bg-black/30'
+            }`}
+            title={zh('在 JavDB 中搜索女优', 'Search for idol in JavDB')}
+            aria-label={zh('在 JavDB 中搜索女优', 'Search for idol in JavDB')}
+            disabled={!canOpenJavDB}
+            onClick={handleOpenJavDB}
+          >
+            <img src="/ico/javdb.png" alt="JavDB" className="h-4 w-4" loading="lazy" />
+          </button>
+          <button
+            type="button"
+            className="card-hover-focus-visible absolute bottom-2 right-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white opacity-0 shadow-lg shadow-black/60 transition-opacity hover:bg-black/85 group-hover:opacity-100"
+            title={zh('选择女优头像', 'Select idol avatar')}
+            aria-label={zh('选择女优头像', 'Select idol avatar')}
+            disabled={!hasIdolId}
+            onClick={handleOpenAvatarPicker}
+          >
+            <FaceRetouchingNaturalRoundedIcon sx={{ fontSize: 16 }} />
+          </button>
+          <button
+            type="button"
+            className="card-hover-focus-visible absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white opacity-0 shadow-lg shadow-black/60 transition-opacity hover:bg-black/85 group-hover:opacity-100"
+            title={zh('编辑女优信息', 'Edit idol info')}
+            aria-label={zh('编辑女优信息', 'Edit idol info')}
+            onClick={handleOpenEditor}
+          >
+            <EditRoundedIcon sx={{ fontSize: 16 }} />
+          </button>
         </div>
-        {metaRows.length > 0 ? (
-          <div className="flex flex-col gap-1.5 text-[10px] text-gray-900">
-            {metaRows.map((row) => (
-              <div
-                key={row.key}
-                className={`flex gap-1.5 overflow-hidden ${row.wrap ? 'flex-wrap' : 'flex-nowrap'} ${row.className || ''}`}
+        <div className="flex flex-1 select-text flex-col gap-2 p-3">
+          <div className="flex min-w-0 items-baseline gap-1.5 leading-tight">
+            <span
+              className="min-w-0 max-w-[70%] truncate text-sm font-semibold text-gray-950"
+              title={primaryName}
+            >
+              {primaryName}
+            </span>
+            {secondaryName ? (
+              <span
+                className="min-w-0 flex-1 truncate text-[11px] font-normal text-gray-500"
+                title={secondaryName}
               >
-                {row.items.map((meta) => (
-                  <span
-                    key={meta.key}
-                    className={`inline-flex items-center ${meta.wrap ? 'whitespace-normal break-words' : 'whitespace-nowrap'}`}
-                  >
-                    {meta.content ?? meta.label}
-                  </span>
-                ))}
-              </div>
-            ))}
+                {secondaryName}
+              </span>
+            ) : null}
           </div>
-        ) : (
-          <div className="text-xs text-gray-400">{zh('信息待补充', 'More info coming')}</div>
-        )}
-      </div>
-    </a>
+          {metaRows.length > 0 ? (
+            <div className="flex flex-col gap-1.5 text-[10px] text-gray-900">
+              {metaRows.map((row) => (
+                <div
+                  key={row.key}
+                  className={`flex gap-1.5 overflow-hidden ${row.wrap ? 'flex-wrap' : 'flex-nowrap'} ${row.className || ''}`}
+                >
+                  {row.items.map((meta) => (
+                    <span
+                      key={meta.key}
+                      className={`inline-flex items-center ${meta.wrap ? 'whitespace-normal break-words' : 'whitespace-nowrap'}`}
+                    >
+                      {meta.content ?? meta.label}
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-xs text-gray-400">{zh('信息待补充', 'More info coming')}</div>
+          )}
+        </div>
+      </a>
+      <JavIdolAvatarModal
+        open={avatarPickerOpen}
+        item={item}
+        preferChineseName={preferChineseName}
+        onClose={() => setAvatarPickerOpen(false)}
+        onSaved={() => {
+          setAvatarFailed(false)
+          setAvatarVersion((current) => current + 1)
+        }}
+      />
+    </>
   )
 }
 
@@ -962,16 +895,6 @@ function mergeAliasLists(current = [], incoming = []) {
     aliases.push(alias)
   }
   return aliases
-}
-
-function calculateCoverLeft({ cropLeft, frameWidth, renderedWidth }) {
-  if (!Number.isFinite(frameWidth) || frameWidth <= 0) return 0
-  if (!Number.isFinite(renderedWidth) || renderedWidth <= 0) return 0
-  if (renderedWidth <= frameWidth) {
-    return (frameWidth - renderedWidth) / 2
-  }
-  const maxOffset = renderedWidth - frameWidth
-  return -Math.min(Math.max(cropLeft * renderedWidth, 0), maxOffset)
 }
 
 function formatBirthDate(value) {

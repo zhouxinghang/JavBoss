@@ -327,7 +327,6 @@ export default function useJavItemActions({
   const [studioHoverAnchorEl, setStudioHoverAnchorEl] = useState(null)
   const [previewSeries, setPreviewSeries] = useState(null)
   const [seriesHoverAnchorEl, setSeriesHoverAnchorEl] = useState(null)
-  const [idolCoverEditorItem, setIdolCoverEditorItem] = useState(null)
   const [idolEditorItem, setIdolEditorItem] = useState(null)
   const closeTimerRef = useRef(null)
   const activeIdolHoverIdRef = useRef(null)
@@ -493,11 +492,6 @@ export default function useJavItemActions({
       })
   }
 
-  const handleOpenIdolCoverEditor = (idol) => {
-    clearHoverCloseTimer()
-    setIdolCoverEditorItem(idol)
-  }
-
   const updateStoredIdol = (updated) => {
     const updatedId = Number(updated?.id)
     if (!Number.isFinite(updatedId) || updatedId <= 0) return
@@ -518,16 +512,6 @@ export default function useJavItemActions({
       current && Number(current.id) === updatedId ? { ...current, ...updated } : current
     )
     setIdolEditorItem(null)
-  }
-
-  const handleIdolCoverSaved = (updated) => {
-    const updatedId = Number(updated?.id)
-    if (!Number.isFinite(updatedId) || updatedId <= 0) return
-    updateStoredIdol(updated)
-    onIdolPreviewUpdated?.(updated)
-    setPreviewIdol((current) =>
-      current && Number(current.id) === updatedId ? { ...current, ...updated } : current
-    )
   }
 
   const handleStudioHoverStart = (studio, event) => {
@@ -654,7 +638,6 @@ export default function useJavItemActions({
     previewIdol,
     idolHoverAnchorEl,
     onOpenFavorites,
-    handleOpenIdolCoverEditor,
     handleOpenIdolEditor,
     coverAspectPercent,
     showIdolWorkCount,
@@ -685,9 +668,6 @@ export default function useJavItemActions({
     onManageVideoRename,
     onManageVideoDelete,
     onManageVideoTagClick,
-    idolCoverEditorItem,
-    setIdolCoverEditorItem,
-    handleIdolCoverSaved,
     idolEditorItem,
     setIdolEditorItem,
     handleIdolSaved,

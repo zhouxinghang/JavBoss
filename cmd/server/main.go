@@ -180,11 +180,13 @@ func main() {
 		jav.ProviderAvsox,
 	})
 	sampleImageManager := manager.NewSampleImageManager(cfg.JavSampleImageDir)
+	idolAvatarManager := manager.NewIdolAvatarManager(cfg.JavIdolDir, nil)
 
 	common.AppConfig = cfg
 	common.ScreenshotManager = screenshotManager
 	common.CoverManager = coverManager
 	common.SampleImageManager = sampleImageManager
+	common.IdolAvatarManager = idolAvatarManager
 	common.StreamManager = streamManager
 	common.FFmpegToolManager = ffmpegToolManager
 
@@ -200,6 +202,7 @@ func main() {
 	screenshotManager.Start(ctx)
 	coverManager.Start(ctx)
 	sampleImageManager.Start(ctx)
+	idolAvatarManager.Start(ctx)
 	streamManager.Start(ctx)
 	go func() {
 		timer := time.NewTimer(5 * time.Second)
