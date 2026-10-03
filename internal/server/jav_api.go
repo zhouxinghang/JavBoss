@@ -256,6 +256,7 @@ func resolveJavSampleImages(c *gin.Context) {
 		return
 	}
 	if len(item.SampleImages) > 0 && !item.SampleImages.IsNotFound() {
+		warmJavSampleImages(item.SampleImages)
 		c.JSON(http.StatusOK, gin.H{"sample_images": item.SampleImages})
 		return
 	}
@@ -287,7 +288,25 @@ func resolveJavSampleImages(c *gin.Context) {
 		respondLocalizedError(c, http.StatusInternalServerError, "保存样品图失败", "Failed to save sample images")
 		return
 	}
+	warmJavSampleImages(stored)
 	c.JSON(http.StatusOK, gin.H{"sample_images": stored})
+}
+
+// warmJavSampleImages pre-fills the sample image cache in the background so the
+// first preview open does not have to wait for the remote image hosts.
+func warmJavSampleImages(images models.JavSampleImages) {
+	manager := common.SampleImageManager
+	if manager == nil {
+		return
+	}
+	for _, image := range images {
+		if url := strings.TrimSpace(image.ThumbnailURL); url != "" {
+			manager.Warm(url)
+		}
+		if url := strings.TrimSpace(image.DetailURL); url != "" {
+			manager.Warm(url)
+		}
+	}
 }
 
 type javSampleImageLookupFunc func(context.Context, string, jav.Provider) (*jav.JavInfo, error)
@@ -567,6 +586,7 @@ type javItemUpdateRequest struct {
 	ReleaseDate    *string  `json:"release_date"`
 	DurationMin    *int     `json:"duration_min"`
 	FavoriteRating *float64 `json:"favorite_rating"`
+	CoverCropLeft  *float64 `json:"cover_crop_left"`
 }
 
 func updateJavItem(c *gin.Context) {
@@ -625,6 +645,7 @@ func updateJavItem(c *gin.Context) {
 		ReleaseUnix:    releaseUnix,
 		DurationMin:    req.DurationMin,
 		FavoriteRating: req.FavoriteRating,
+		CoverCropLeft:  req.CoverCropLeft,
 	}, nil)
 	if err != nil {
 		logging.Error("update jav item error: %v", err)

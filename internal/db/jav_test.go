@@ -311,7 +311,7 @@ func TestListJavCodesForDirectoryOnlyReturnsVisibleDistinctCodes(t *testing.T) {
 	}
 }
 
-func TestListJavIdolsOnlyIncludesIdolsWithVisibleSoloWorks(t *testing.T) {
+func TestListJavIdolsIncludesIdolsWithVisibleWorks(t *testing.T) {
 	db := openTestDB(t)
 	ctx := context.Background()
 	now := time.Unix(1710000000, 0).UTC()
@@ -394,20 +394,33 @@ func TestListJavIdolsOnlyIncludesIdolsWithVisibleSoloWorks(t *testing.T) {
 		t.Fatalf("ListJavIdols: %v", err)
 	}
 
-	if total != 1 {
-		t.Fatalf("unexpected total: got %d want 1", total)
+	if total != 2 {
+		t.Fatalf("unexpected total: got %d want 2", total)
 	}
-	if len(items) != 1 {
-		t.Fatalf("unexpected item count: got %d want 1", len(items))
+	if len(items) != 2 {
+		t.Fatalf("unexpected item count: got %d want 2", len(items))
 	}
-	if items[0].ID != soloIdol.ID {
-		t.Fatalf("unexpected idol id: got %d want %d", items[0].ID, soloIdol.ID)
+	byID := make(map[int64]JavIdolSummary, len(items))
+	for _, item := range items {
+		byID[item.ID] = item
 	}
-	if items[0].WorkCount != 2 {
-		t.Fatalf("unexpected work count: got %d want 2", items[0].WorkCount)
+
+	solo := byID[soloIdol.ID]
+	if solo.WorkCount != 2 {
+		t.Fatalf("unexpected solo work count: got %d want 2", solo.WorkCount)
 	}
-	if items[0].CoverCode != soloJav.Code {
-		t.Fatalf("unexpected cover code: got %q want %q", items[0].CoverCode, soloJav.Code)
+	if solo.CoverCode != soloJav.Code {
+		t.Fatalf("unexpected solo cover code: got %q want %q", solo.CoverCode, soloJav.Code)
+	}
+
+	// An idol whose works are all multi-actress must still appear, just without
+	// a solo-work cover.
+	groupOnly := byID[groupOnlyIdol.ID]
+	if groupOnly.WorkCount != 1 {
+		t.Fatalf("unexpected group-only work count: got %d want 1", groupOnly.WorkCount)
+	}
+	if groupOnly.CoverCode != "" {
+		t.Fatalf("unexpected group-only cover code: got %q want empty", groupOnly.CoverCode)
 	}
 }
 
@@ -1154,6 +1167,49 @@ func TestUpdateJavFavoriteRating(t *testing.T) {
 		invalid := invalid
 		if _, err := UpdateJav(ctx, javRec.ID, JavUpdateInput{FavoriteRating: &invalid}, nil); err == nil {
 			t.Fatalf("UpdateJav accepted invalid favorite rating %v", invalid)
+		}
+	}
+}
+
+func TestUpdateJavCoverCropLeft(t *testing.T) {
+	db := openTestDB(t)
+	ctx := context.Background()
+	javRec := models.Jav{Code: "CROP-EDIT", Title: "Crop"}
+	if err := db.Create(&javRec).Error; err != nil {
+		t.Fatalf("create jav: %v", err)
+	}
+
+	created, err := GetJav(ctx, javRec.ID, nil)
+	if err != nil {
+		t.Fatalf("GetJav: %v", err)
+	}
+	if created.CoverCropLeft != 0.53 {
+		t.Fatalf("default cover crop left = %v, want 0.53", created.CoverCropLeft)
+	}
+
+	crop := 0.2
+	updated, err := UpdateJav(ctx, javRec.ID, JavUpdateInput{CoverCropLeft: &crop}, nil)
+	if err != nil {
+		t.Fatalf("UpdateJav cover crop left: %v", err)
+	}
+	if updated.CoverCropLeft != crop {
+		t.Fatalf("cover crop left = %v, want %v", updated.CoverCropLeft, crop)
+	}
+
+	for _, testCase := range []struct {
+		input float64
+		want  float64
+	}{
+		{input: -0.3, want: 0},
+		{input: 1.8, want: 1},
+	} {
+		value := testCase.input
+		clamped, err := UpdateJav(ctx, javRec.ID, JavUpdateInput{CoverCropLeft: &value}, nil)
+		if err != nil {
+			t.Fatalf("UpdateJav cover crop left %v: %v", value, err)
+		}
+		if clamped.CoverCropLeft != testCase.want {
+			t.Fatalf("cover crop left %v clamped to %v, want %v", value, clamped.CoverCropLeft, testCase.want)
 		}
 	}
 }
