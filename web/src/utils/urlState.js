@@ -85,6 +85,7 @@ export const parseUrlState = (searchString = window.location.search, options = {
     search: (sp.get('search') || '').trim(),
     tempSort: videoTempSort,
     tagIds: parseIds(sp.get('tag_ids')),
+    unmatched: sp.get('unmatched') === '1',
     random: sp.get('random') === '1',
     seed: clampSeed(sp.get('seed')),
   }
@@ -223,6 +224,7 @@ export const buildUrlFromState = (state, basePath = window.location.pathname) =>
   if (state.video.tagIds?.length) {
     sp.set('tag_ids', [...state.video.tagIds].sort((a, b) => a - b).join(','))
   }
+  if (state.video.unmatched) sp.set('unmatched', '1')
   if (state.video.random) {
     sp.set('random', '1')
     if (state.video.seed) sp.set('seed', String(state.video.seed))
@@ -247,6 +249,7 @@ export const normalizeUrlStateFromStore = (store, tagsByName) => {
       search: (store.searchTerm || '').trim(),
       tempSort: store.randomMode ? '' : store.videoTempSort || '',
       tagIds: selectedIds,
+      unmatched: Boolean(store.videoUnmatchedOnly),
       random: store.randomMode,
       seed: store.randomMode ? store.randomSeed : null,
     },

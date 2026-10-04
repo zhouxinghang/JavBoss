@@ -53,6 +53,7 @@ export default function useLibraryFilters({
     javFavoriteRatingMax,
     javRandomMode,
     directories,
+    videoUnmatchedOnly,
   } = useStore(
     useShallow((state) => ({
       setSearchTerm: state.setSearchTerm,
@@ -81,6 +82,7 @@ export default function useLibraryFilters({
       javFavoriteRatingMax: state.javFavoriteRatingMax,
       javRandomMode: state.javRandomMode,
       directories: state.directories,
+      videoUnmatchedOnly: state.videoUnmatchedOnly,
     }))
   )
   const [javResolvedIdols, setJavResolvedIdols] = useState({})
@@ -330,6 +332,13 @@ export default function useLibraryFilters({
             updateVideoFilters({ selectedTags: selectedTags.filter((tag) => tag !== name) }),
         })
       })
+      if (videoUnmatchedOnly) {
+        items.push({
+          key: 'video-unmatched',
+          label: zh('未命中搜刮', 'Not scraped'),
+          onRemove: () => updateVideoFilters({ videoUnmatchedOnly: false }),
+        })
+      }
       if (randomMode) {
         items.push({
           key: 'video-random',
@@ -478,6 +487,7 @@ export default function useLibraryFilters({
     setSearchInput,
     updateJavFilters,
     updateVideoFilters,
+    videoUnmatchedOnly,
   ])
 
   const handleClearActiveFilters = useCallback(() => {
@@ -486,6 +496,7 @@ export default function useLibraryFilters({
       updateVideoFilters({
         selectedTags: [],
         searchTerm: '',
+        videoUnmatchedOnly: false,
         randomMode: false,
         randomSeed: null,
       })

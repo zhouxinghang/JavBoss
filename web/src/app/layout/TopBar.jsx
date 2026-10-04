@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
+import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined'
 import FavoriteBorderRoundedIcon from '@mui/icons-material/FavoriteBorderRounded'
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded'
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined'
@@ -334,6 +335,8 @@ export default function TopBar({
   searchInput,
   selectedCount = 0,
   selectedFavoriteGroupId = null,
+  videoUnmatchedOnly = false,
+  onToggleVideoUnmatched,
 }) {
   const headerRef = useRef(null)
   const favoriteMenuRef = useRef(null)
@@ -530,6 +533,19 @@ export default function TopBar({
               showClear={hasActiveControlFilter}
               onClear={onClearFilters}
             />
+          ) : null}
+
+          {!isJavMode && onToggleVideoUnmatched ? (
+            <button
+              type="button"
+              className={`filter-action-button ${videoUnmatchedOnly ? 'filter-action-button--active' : ''}`}
+              onClick={() => onToggleVideoUnmatched(!videoUnmatchedOnly)}
+              aria-pressed={Boolean(videoUnmatchedOnly)}
+              title={zh('只看未命中搜刮的视频', 'Only show videos not matched by scraping')}
+            >
+              <FilterAltOutlinedIcon fontSize="small" />
+              <span>{zh('未命中', 'Unmatched')}</span>
+            </button>
           ) : null}
 
           {onRandomClick ? (

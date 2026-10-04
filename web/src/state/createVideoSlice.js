@@ -11,6 +11,10 @@ export function createVideoSlice({ set, get, lists }) {
       set({ pageSize: next, videoTempSort: '', page: 1, randomMode: false, randomSeed: null })
     },
     selectedTags: [],
+    videoUnmatchedOnly: false,
+    setVideoUnmatchedOnly: (enabled) => {
+      set({ videoUnmatchedOnly: Boolean(enabled), videoTempSort: '', page: 1 })
+    },
     selectedVideoIds: new Set(),
     selectedVideoMeta: {},
     searchTerm: '',
@@ -63,7 +67,8 @@ export function createVideoSlice({ set, get, lists }) {
       const next = exists ? selectedTags.filter((t) => t !== tagName) : [...selectedTags, tagName]
       set({ selectedTags: next, videoTempSort: '', page: 1 })
     },
-    clearFilters: () => set({ selectedTags: [], videoTempSort: '', page: 1 }),
+    clearFilters: () =>
+      set({ selectedTags: [], videoUnmatchedOnly: false, videoTempSort: '', page: 1 }),
     toggleSelectVideo: (video) => {
       const key = videoSelectionKey(video)
       if (!video || !video.id || !key) return

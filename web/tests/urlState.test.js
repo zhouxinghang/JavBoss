@@ -12,6 +12,13 @@ test('legacy global directory scope fields are not parsed or serialized', () => 
 test('JAV list URL state round-trips the original directory filter', async (t) => {
   const [{ parseUrlState, buildUrlFromState }] = await loadModules(t, ['utils/urlState.js'])
 
+  const videoParsed = parseUrlState('?view=video&unmatched=1&page=2')
+  assert.equal(videoParsed.video.unmatched, true)
+  assert.match(buildUrlFromState({ ...videoParsed, view: 'video' }, '/'), /unmatched=1/)
+  const videoOff = parseUrlState('?view=video')
+  assert.equal(videoOff.video.unmatched, false)
+  assert.doesNotMatch(buildUrlFromState({ ...videoOff, view: 'video' }, '/'), /unmatched/)
+
   const parsed = parseUrlState('?view=jav&tab=list&directory_ids=3,5')
   assert.deepEqual(parsed.jav.directoryIds, [3, 5])
   const url = buildUrlFromState({ ...parsed, view: 'jav' }, '/')

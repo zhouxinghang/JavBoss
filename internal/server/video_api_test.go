@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -89,6 +90,88 @@ func TestListVideosIgnoresDirectoryIDsAndUsesEnabledDirectories(t *testing.T) {
 	hidden := requestList("directory_ids=" + strconv.FormatInt(dir.ID, 10))
 	if hidden.Total != 0 || len(hidden.Items) != 0 {
 		t.Fatalf("disabled directory must remain hidden despite directory_ids: %#v", hidden)
+	}
+}
+
+func TestListVideosUnmatchedFilter(t *testing.T) {
+	database, err := dbpkg.Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	previousDB := common.DB
+	common.DB = database
+	t.Cleanup(func() {
+		common.DB = previousDB
+		if sqlDB, dbErr := database.DB(); dbErr == nil {
+			_ = sqlDB.Close()
+		}
+	})
+
+	dir := models.Directory{Path: "/media/unmatched-filter"}
+	if err := database.Create(&dir).Error; err != nil {
+		t.Fatalf("create directory: %v", err)
+	}
+	linked := models.Video{Fingerprint: "unmatched-linked"}
+	plain := models.Video{Fingerprint: "unmatched-plain"}
+	for _, video := range []*models.Video{&linked, &plain} {
+		if err := database.Create(video).Error; err != nil {
+			t.Fatalf("create video: %v", err)
+		}
+		if _, err := dbpkg.UpsertVideoLocation(
+			context.Background(),
+			video.ID,
+			dir.ID,
+			fmt.Sprintf("movie-%d.mp4", video.ID),
+			time.Unix(1710000000, 0).UTC(),
+		); err != nil {
+			t.Fatalf("create video location: %v", err)
+		}
+	}
+	javRec := models.Jav{Code: "UNMATCH-001"}
+	if err := database.Create(&javRec).Error; err != nil {
+		t.Fatalf("create jav: %v", err)
+	}
+	if err := database.Model(&models.VideoLocation{}).
+		Where("video_id = ?", linked.ID).
+		Update("jav_id", javRec.ID).Error; err != nil {
+		t.Fatalf("link jav: %v", err)
+	}
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.GET("/videos", listVideos)
+	requestList := func(query string) struct {
+		Items []models.Video `json:"items"`
+		Total int64          `json:"total"`
+	} {
+		t.Helper()
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, "/videos?"+query, nil)
+		router.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("list videos status = %d body=%s", recorder.Code, recorder.Body.String())
+		}
+		var payload struct {
+			Items []models.Video `json:"items"`
+			Total int64          `json:"total"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode list videos response: %v", err)
+		}
+		return payload
+	}
+
+	all := requestList("")
+	if all.Total != 2 {
+		t.Fatalf("unfiltered total = %d, want 2", all.Total)
+	}
+	unmatched := requestList("unmatched=1")
+	if unmatched.Total != 1 || len(unmatched.Items) != 1 || unmatched.Items[0].ID != plain.ID {
+		t.Fatalf("unmatched filter = %#v, want only plain video", unmatched)
+	}
+	legacy := requestList("hide_jav=1")
+	if legacy.Total != 1 || len(legacy.Items) != 1 || legacy.Items[0].ID != plain.ID {
+		t.Fatalf("hide_jav filter = %#v, want only plain video", legacy)
 	}
 }
 

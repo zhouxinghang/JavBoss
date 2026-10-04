@@ -88,6 +88,8 @@ export default function App() {
     favoriteGroupsLoadingByType,
     favoriteGroupsErrorByType,
     loadJavFavoriteGroups,
+    videoUnmatchedOnly,
+    setVideoUnmatchedOnly,
   } = useStore(
     useShallow((s) => ({
       config: s.config,
@@ -120,6 +122,8 @@ export default function App() {
       favoriteGroupsLoadingByType: s.favoriteGroupsLoadingByType,
       favoriteGroupsErrorByType: s.favoriteGroupsErrorByType,
       loadJavFavoriteGroups: s.loadJavFavoriteGroups,
+      videoUnmatchedOnly: s.videoUnmatchedOnly,
+      setVideoUnmatchedOnly: s.setVideoUnmatchedOnly,
     }))
   )
 
@@ -613,6 +617,11 @@ export default function App() {
         onSubmitSearch={isJavMode ? submitJavSearch : submitSearch}
         searchHref={searchHref}
         searchInput={searchInput}
+        videoUnmatchedOnly={videoUnmatchedOnly}
+        onToggleVideoUnmatched={(enabled) => {
+          saveScrollBeforeUrlStateChange?.()
+          setVideoUnmatchedOnly(enabled)
+        }}
         selectedCount={isJavMode ? javSelection.count : selectedCount}
         selectedFavoriteGroupId={activeSelectedFavoriteGroupId}
       />

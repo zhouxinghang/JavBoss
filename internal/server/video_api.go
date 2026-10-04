@@ -33,6 +33,9 @@ func listVideos(c *gin.Context) {
 	search := strings.TrimSpace(c.Query("search"))
 	sort := strings.TrimSpace(c.Query("sort"))
 	hideJav := queryBool(c, "hide_jav", false)
+	unmatchedOnly := queryBool(c, "unmatched", false)
+	// Both switches mean "only show videos not linked to JAV metadata".
+	onlyUnmatched := hideJav || unmatchedOnly
 	seedParam := strings.TrimSpace(c.Query("seed"))
 	var seed *int64
 	if seedParam != "" {
@@ -44,14 +47,14 @@ func listVideos(c *gin.Context) {
 		seed = &parsed
 	}
 
-	videos, err := dbpkg.ListVideos(c.Request.Context(), limit, offset, tagFilter, search, sort, seed, nil, hideJav)
+	videos, err := dbpkg.ListVideos(c.Request.Context(), limit, offset, tagFilter, search, sort, seed, nil, onlyUnmatched)
 	if err != nil {
 		logging.Error("list videos error: %v", err)
 		respondLocalizedError(c, http.StatusInternalServerError, "加载视频列表失败", "Failed to load videos")
 		return
 	}
 
-	total, err := dbpkg.CountVideos(c.Request.Context(), tagFilter, search, nil, hideJav)
+	total, err := dbpkg.CountVideos(c.Request.Context(), tagFilter, search, nil, onlyUnmatched)
 	if err != nil {
 		logging.Error("count videos error: %v", err)
 		respondLocalizedError(c, http.StatusInternalServerError, "统计视频数量失败", "Failed to count videos")
