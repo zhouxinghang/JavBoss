@@ -1,17 +1,65 @@
-import { fetchConfig } from '@/features/settings/api'
+import { fetchConfig, updateConfig } from '@/features/settings/api'
 import { normalizeVideoSort } from '@/constants/video'
 import {
   JAV_GRID_COLUMNS_AUTO,
   JAV_TITLE_MAX_ROWS_DEFAULT,
   JAV_IDOL_TAG_MAX_ROWS_DEFAULT,
   JAV_TAG_MAX_ROWS_DEFAULT,
+  WATERFALL_CONFIG_KEYS,
+  WATERFALL_KEYS,
+  emptyWaterfallModes,
 } from '@/state/model'
 import { normalizeJavSort, normalizeJavSortRules, normalizeIdolSort } from '@/constants/jav'
 import { configFlag } from '@/utils/config'
+import { getErrorMessage } from '@/utils/errors'
+
+function waterfallModesFromConfig(config) {
+  return Object.fromEntries(
+    WATERFALL_KEYS.map((key) => [key, configFlag(config?.[WATERFALL_CONFIG_KEYS[key]])])
+  )
+}
 
 export function createConfigSlice({ get, set }) {
+  // Guards against out-of-order responses when the user toggles repeatedly.
+  const waterfallRequests = {}
   return {
     config: {},
+    waterfallModes: emptyWaterfallModes(),
+    // Persists a toolbar waterfall toggle to the matching display setting so the
+    // choice survives reloads (same contract as jav_compact_default).
+    setWaterfallMode: (key, enabled) => {
+      const configKey = WATERFALL_CONFIG_KEYS[key]
+      if (!configKey) return Promise.resolve()
+      const next = Boolean(enabled)
+      const previous = Boolean(get().waterfallModes?.[key])
+      if (previous === next) return Promise.resolve()
+      const requestID = (waterfallRequests[key] || 0) + 1
+      waterfallRequests[key] = requestID
+      set((state) => ({ waterfallModes: { ...state.waterfallModes, [key]: next } }))
+      return updateConfig({ [configKey]: next })
+        .then((config) => {
+          if (waterfallRequests[key] !== requestID) return
+          set((state) => ({
+            config,
+            waterfallModes: { ...state.waterfallModes, [key]: next },
+          }))
+        })
+        .catch((error) => {
+          if (waterfallRequests[key] !== requestID) return
+          set((state) => ({
+            waterfallModes: { ...state.waterfallModes, [key]: previous },
+          }))
+          get().setJavError?.(getErrorMessage(error))
+        })
+    },
+    // Applies an already-saved waterfall default (display settings) without
+    // issuing another config write.
+    syncWaterfallMode: (key, enabled) => {
+      if (!WATERFALL_CONFIG_KEYS[key]) return
+      set((state) => ({
+        waterfallModes: { ...state.waterfallModes, [key]: Boolean(enabled) },
+      }))
+    },
     loadConfig: async () => {
       try {
         const cfg = await fetchConfig()
@@ -86,6 +134,19 @@ export function createConfigSlice({ get, set }) {
         const javCompactDefault = configFlag(cfg?.jav_compact_default)
         if (javCompactDefault !== configFlag(state.config?.jav_compact_default)) {
           updates.javCompactMode = javCompactDefault
+        }
+        // Only adopt stored defaults whose value changed, so a manual toggle is
+        // not overwritten by a later reload that carries an unchanged config.
+        const storedWaterfall = waterfallModesFromConfig(cfg)
+        const loadedWaterfall = waterfallModesFromConfig(state.config)
+        const waterfallUpdates = {}
+        for (const key of WATERFALL_KEYS) {
+          if (storedWaterfall[key] !== loadedWaterfall[key]) {
+            waterfallUpdates[key] = storedWaterfall[key]
+          }
+        }
+        if (Object.keys(waterfallUpdates).length > 0) {
+          updates.waterfallModes = { ...state.waterfallModes, ...waterfallUpdates }
         }
         if (idolSize && idolSize !== state.idolPageSize) {
           updates.idolPageSize = idolSize

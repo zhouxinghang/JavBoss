@@ -1,11 +1,12 @@
 import { useStore } from '@/store'
 import { useShallow } from 'zustand/react/shallow'
-import { useState, useEffect, useCallback } from 'react'
-import { configFlag } from '@/utils/config'
+import { useCallback } from 'react'
 
 export default function useListDisplay({ configLoaded, hydrated }) {
   const {
-    config,
+    waterfallModes,
+    setWaterfallMode: persistWaterfallMode,
+    syncWaterfallMode: syncWaterfallModeState,
     loadVideos,
     loadJavIdols,
     loadJavFavoriteGroups,
@@ -14,7 +15,9 @@ export default function useListDisplay({ configLoaded, hydrated }) {
     loadJavs,
   } = useStore(
     useShallow((state) => ({
-      config: state.config,
+      waterfallModes: state.waterfallModes,
+      setWaterfallMode: state.setWaterfallMode,
+      syncWaterfallMode: state.syncWaterfallMode,
       loadVideos: state.loadVideos,
       loadJavIdols: state.loadJavIdols,
       loadJavFavoriteGroups: state.loadJavFavoriteGroups,
@@ -23,32 +26,6 @@ export default function useListDisplay({ configLoaded, hydrated }) {
       loadJavs: state.loadJavs,
     }))
   )
-  const [waterfallModes, setWaterfallModes] = useState({
-    video: false,
-    jav: false,
-    idol: false,
-    studio: false,
-    series: false,
-  })
-
-  useEffect(() => {
-    if (!configLoaded) return
-    setWaterfallModes((current) => ({
-      ...current,
-      video: configFlag(config?.video_waterfall_default),
-      jav: configFlag(config?.jav_waterfall_default),
-      idol: configFlag(config?.idol_waterfall_default),
-      studio: configFlag(config?.studio_waterfall_default),
-      series: configFlag(config?.series_waterfall_default),
-    }))
-  }, [
-    configLoaded,
-    config?.video_waterfall_default,
-    config?.jav_waterfall_default,
-    config?.idol_waterfall_default,
-    config?.studio_waterfall_default,
-    config?.series_waterfall_default,
-  ])
 
   const forceReloadVideos = useCallback(() => {
     if (!hydrated || !configLoaded) return
@@ -85,10 +62,11 @@ export default function useListDisplay({ configLoaded, hydrated }) {
     ]
   )
 
-  const setWaterfallMode = useCallback(
-    (key, enabled) => {
-      setWaterfallModes((current) => ({ ...current, [key]: enabled }))
-      if (enabled || !hydrated || !configLoaded) return
+  // Leaving waterfall mode changes how the list is paged, so the current view
+  // must be reloaded for the switched layout.
+  const reloadWaterfallList = useCallback(
+    (key) => {
+      if (!hydrated || !configLoaded) return
       if (key === 'video') {
         loadVideos({ force: true })
       } else if (key === 'jav') {
@@ -103,5 +81,33 @@ export default function useListDisplay({ configLoaded, hydrated }) {
     },
     [configLoaded, hydrated, loadJavIdols, loadJavSeries, loadJavStudios, loadJavs, loadVideos]
   )
-  return { waterfallModes, forceReloadVideos, forceReloadJavByTab, setWaterfallMode }
+
+  const setWaterfallMode = useCallback(
+    (key, enabled) => {
+      const next = Boolean(enabled)
+      const result = persistWaterfallMode(key, next)
+      if (!next) reloadWaterfallList(key)
+      return result
+    },
+    [persistWaterfallMode, reloadWaterfallList]
+  )
+
+  // Display settings already write the config; only mirror the saved value and
+  // refresh the active list without a redundant config request.
+  const syncWaterfallMode = useCallback(
+    (key, enabled) => {
+      const next = Boolean(enabled)
+      syncWaterfallModeState(key, next)
+      if (!next) reloadWaterfallList(key)
+    },
+    [reloadWaterfallList, syncWaterfallModeState]
+  )
+
+  return {
+    waterfallModes,
+    forceReloadVideos,
+    forceReloadJavByTab,
+    setWaterfallMode,
+    syncWaterfallMode,
+  }
 }

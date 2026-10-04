@@ -16,6 +16,22 @@ export const JAV_TAG_MAX_ROWS_DEFAULT = 2
 
 export const RANDOM_SEED_MAX = 2147483646
 
+export const WATERFALL_KEYS = ['video', 'jav', 'idol', 'studio', 'series']
+
+// Maps each waterfall view to the config field that stores its default. The
+// toolbar toggle and the matching display setting share one value, mirroring
+// how "jav_compact_default" backs the compact-mode toggle.
+export const WATERFALL_CONFIG_KEYS = {
+  video: 'video_waterfall_default',
+  jav: 'jav_waterfall_default',
+  idol: 'idol_waterfall_default',
+  studio: 'studio_waterfall_default',
+  series: 'series_waterfall_default',
+}
+
+export const emptyWaterfallModes = () =>
+  Object.fromEntries(WATERFALL_KEYS.map((key) => [key, false]))
+
 export const directoryScopeResetState = () => ({
   page: 1,
   javPage: 1,

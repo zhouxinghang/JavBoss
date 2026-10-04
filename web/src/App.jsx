@@ -171,8 +171,13 @@ export default function App() {
     buildVideoUrl,
     buildJavUrl,
   } = useLibraryRoute({ setJavSearchInput, setSearchInput, configLoaded })
-  const { waterfallModes, forceReloadVideos, forceReloadJavByTab, setWaterfallMode } =
-    useListDisplay({ configLoaded, hydrated })
+  const {
+    waterfallModes,
+    forceReloadVideos,
+    forceReloadJavByTab,
+    setWaterfallMode,
+    syncWaterfallMode,
+  } = useListDisplay({ configLoaded, hydrated })
 
   const isJavMode = viewMode === 'jav'
   useWebHotkeys({ isJavMode, waterfallModes, setJavQueryEditorOpen })
@@ -761,7 +766,7 @@ export default function App() {
         <VideoSettings
           onClose={() => setVideoSettingsOpen(false)}
           onError={showCenterToast}
-          onWaterfallChange={setWaterfallMode}
+          onWaterfallChange={syncWaterfallMode}
         />
       )}
 
@@ -803,7 +808,7 @@ export default function App() {
         <JavSettings
           onClose={() => setJavSettingsOpen(false)}
           onError={showCenterToast}
-          onWaterfallChange={setWaterfallMode}
+          onWaterfallChange={syncWaterfallMode}
           initialTab={javTab === 'list' ? 'jav' : javTab}
         />
       )}
