@@ -86,14 +86,17 @@ function JavFavoriteRatingEditor({ value, saving, error, onChange }) {
   const [preview, setPreview] = useState(null)
   const tooltipValue = preview ?? rating
   const hasTooltipValue = preview !== null || rating > 0
-  const displayCount = Math.ceil(rating)
+  const displayCount = Math.round(rating)
   const ratingWidth = !editing ? Math.max(displayCount, 1) * 21 : 5 * 21
   const tooltipTitle = error
     ? error
     : preview === 0
       ? zh('清空喜爱度', 'Clear favorite rating')
       : hasTooltipValue
-        ? zh(`喜爱度：${tooltipValue.toFixed(1)} 分`, `Favorite rating: ${tooltipValue.toFixed(1)}`)
+        ? zh(
+            `喜爱度：${Math.round(tooltipValue)} 分`,
+            `Favorite rating: ${Math.round(tooltipValue)}`
+          )
         : zh('设置喜爱度评分', 'Set favorite rating')
 
   return (
@@ -121,7 +124,7 @@ function JavFavoriteRatingEditor({ value, saving, error, onChange }) {
           <Rating
             name="jav-detail-favorite-rating"
             value={rating}
-            precision={0.5}
+            precision={1}
             size="small"
             icon={<FavoriteRoundedIcon fontSize="inherit" />}
             emptyIcon={<FavoriteBorderRoundedIcon fontSize="inherit" />}
@@ -129,7 +132,7 @@ function JavFavoriteRatingEditor({ value, saving, error, onChange }) {
             onChange={onChange}
             onMouseEnter={() => setEditing(true)}
             onFocus={() => setEditing(true)}
-            onChangeActive={(_, nextValue) => setPreview(nextValue >= 0.5 ? nextValue : null)}
+            onChangeActive={(_, nextValue) => setPreview(nextValue >= 1 ? nextValue : null)}
             sx={{
               flexShrink: 0,
               color: '#fbbf24',
@@ -153,7 +156,7 @@ function JavFavoriteRatingEditor({ value, saving, error, onChange }) {
         ) : null}
         {rating > 0 && !editing ? (
           <span className="ml-1 shrink-0 text-xs font-semibold tabular-nums leading-none text-gray-700">
-            {rating.toFixed(1)}
+            {Math.round(rating)}
           </span>
         ) : null}
       </span>

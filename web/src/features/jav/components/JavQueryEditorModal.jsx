@@ -36,7 +36,7 @@ const cleanJavPrefix = (value) =>
 const cleanFavoriteRating = (value, fallback) => {
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) return fallback
-  return Math.min(5, Math.max(0.5, Math.round(parsed * 2) / 2))
+  return Math.min(5, Math.max(1, Math.round(parsed)))
 }
 
 const unknownStudioOption = () => ({ id: 0, name: zh('未知片商', 'Unknown studio') })
@@ -98,7 +98,7 @@ export default function JavQueryEditorModal({
   showSimplifiedTags = false,
   favoriteGroupId = null,
   favoriteRatingEnabled = false,
-  favoriteRatingMin = 0.5,
+  favoriteRatingMin = 1,
   favoriteRatingMax = 5,
 }) {
   const prefixInputRef = useRef(null)
@@ -130,7 +130,7 @@ export default function JavQueryEditorModal({
   const [selectedDirectoryIds, setSelectedDirectoryIds] = useState([])
   const [selectedSoloOnly, setSelectedSoloOnly] = useState(false)
   const [selectedFavoriteRatingEnabled, setSelectedFavoriteRatingEnabled] = useState(false)
-  const [selectedFavoriteRatingRange, setSelectedFavoriteRatingRange] = useState([0.5, 5])
+  const [selectedFavoriteRatingRange, setSelectedFavoriteRatingRange] = useState([1, 5])
   const [seriesSearch, setSeriesSearch] = useState('')
   const [seriesPickerOpen, setSeriesPickerOpen] = useState(false)
   const [filterOptions, setFilterOptions] = useState(EMPTY_FILTER_OPTIONS)
@@ -177,12 +177,12 @@ export default function JavQueryEditorModal({
     setSelectedDirectoryIds(cleanIds(directoryIds))
     setSelectedSoloOnly(Boolean(soloOnly))
     setSelectedFavoriteRatingEnabled(Boolean(favoriteRatingEnabled))
-    const nextFavoriteRatingMin = cleanFavoriteRating(favoriteRatingMin, 0.5)
+    const nextFavoriteRatingMin = cleanFavoriteRating(favoriteRatingMin, 1)
     const nextFavoriteRatingMax = cleanFavoriteRating(favoriteRatingMax, 5)
     setSelectedFavoriteRatingRange(
       nextFavoriteRatingMin <= nextFavoriteRatingMax
         ? [nextFavoriteRatingMin, nextFavoriteRatingMax]
-        : [0.5, 5]
+        : [1, 5]
     )
     setSeriesSearch('')
     setSeriesPickerOpen(false)
@@ -534,7 +534,7 @@ export default function JavQueryEditorModal({
     setSelectedDirectoryIds([])
     setSelectedSoloOnly(false)
     setSelectedFavoriteRatingEnabled(false)
-    setSelectedFavoriteRatingRange([0.5, 5])
+    setSelectedFavoriteRatingRange([1, 5])
     setSeriesSearch('')
     setSeriesPickerOpen(false)
   }
@@ -641,12 +641,12 @@ export default function JavQueryEditorModal({
                 onChange={(_, value) => {
                   if (Array.isArray(value)) setSelectedFavoriteRatingRange(value)
                 }}
-                min={0.5}
+                min={1}
                 max={5}
-                step={0.5}
+                step={1}
                 disableSwap
                 valueLabelDisplay="on"
-                valueLabelFormat={(value) => Number(value).toFixed(1)}
+                valueLabelFormat={(value) => String(Math.round(Number(value)))}
                 getAriaLabel={(index) =>
                   index === 0
                     ? zh('最低喜爱度', 'Minimum favorite rating')

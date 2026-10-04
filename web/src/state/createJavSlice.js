@@ -99,7 +99,7 @@ export function createJavSlice({ set, get, lists }) {
         javSeriesName: '',
         javSoloOnly: false,
         javFavoriteRatingEnabled: false,
-        javFavoriteRatingMin: 0.5,
+        javFavoriteRatingMin: 1,
         javFavoriteRatingMax: 5,
         idolFavoriteGroupId: null,
         javSearchTerm: '',

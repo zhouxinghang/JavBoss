@@ -111,7 +111,7 @@ export default function useJavItemActions({
   const favoriteRatingTooltipValue = favoriteRatingPreview ?? favoriteRating
   const hasFavoriteRatingTooltipValue = favoriteRatingPreview !== null || favoriteRating > 0
   const favoriteRatingDisplayCount = showFullFavoriteRating
-    ? Math.ceil(favoriteRating)
+    ? Math.round(favoriteRating)
     : favoriteRating > 0
       ? 1
       : 0
@@ -244,7 +244,7 @@ export default function useJavItemActions({
     event?.stopPropagation()
     const javID = Number(item?.id)
     const numericValue = value == null ? 0 : Number(value)
-    const nextRating = Math.round(numericValue * 2) / 2
+    const nextRating = Math.round(numericValue)
     if (
       favoriteRatingSaving ||
       !Number.isFinite(javID) ||

@@ -1188,7 +1188,7 @@ func TestUpdateJavFavoriteRating(t *testing.T) {
 		t.Fatalf("create jav: %v", err)
 	}
 
-	rating := 4.5
+	rating := 4.0
 	updated, err := UpdateJav(ctx, javRec.ID, JavUpdateInput{FavoriteRating: &rating}, nil)
 	if err != nil {
 		t.Fatalf("UpdateJav favorite rating: %v", err)
@@ -1206,7 +1206,7 @@ func TestUpdateJavFavoriteRating(t *testing.T) {
 		t.Fatalf("favorite rating after clear = %v, want 0", updated.FavoriteRating)
 	}
 
-	for _, invalid := range []float64{-0.5, 0.25, 5.5} {
+	for _, invalid := range []float64{-0.5, 0.5, 2.5, 5.5} {
 		invalid := invalid
 		if _, err := UpdateJav(ctx, javRec.ID, JavUpdateInput{FavoriteRating: &invalid}, nil); err == nil {
 			t.Fatalf("UpdateJav accepted invalid favorite rating %v", invalid)
@@ -1267,8 +1267,8 @@ func TestSearchJavSortByFavoriteRating(t *testing.T) {
 		t.Fatalf("create directory: %v", err)
 	}
 	javs := []models.Jav{
-		{Code: "RATE-LOW", Title: "Low", FavoriteRating: 1.5, FetchedAt: now},
-		{Code: "RATE-HIGH", Title: "High", FavoriteRating: 4.5, FetchedAt: now},
+		{Code: "RATE-LOW", Title: "Low", FavoriteRating: 1, FetchedAt: now},
+		{Code: "RATE-HIGH", Title: "High", FavoriteRating: 5, FetchedAt: now},
 		{Code: "RATE-NONE", Title: "Unrated", FetchedAt: now},
 	}
 	if err := db.Create(&javs).Error; err != nil {

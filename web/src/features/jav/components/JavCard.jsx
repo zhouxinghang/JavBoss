@@ -219,8 +219,8 @@ export default function JavCard(props) {
                   ? zh('清空喜爱度', 'Clear favorite rating')
                   : hasFavoriteRatingTooltipValue
                     ? zh(
-                        `喜爱度：${favoriteRatingTooltipValue.toFixed(1)} 分`,
-                        `Favorite rating: ${favoriteRatingTooltipValue.toFixed(1)}`
+                        `喜爱度：${Math.round(favoriteRatingTooltipValue)} 分`,
+                        `Favorite rating: ${Math.round(favoriteRatingTooltipValue)}`
                       )
                     : zh('设置喜爱度评分', 'Set favorite rating'))
               }
@@ -245,7 +245,7 @@ export default function JavCard(props) {
                   <Rating
                     name={`jav-favorite-rating-${item?.id || code || 'unknown'}`}
                     value={favoriteRating}
-                    precision={0.5}
+                    precision={1}
                     size="small"
                     icon={<FavoriteRoundedIcon fontSize="inherit" />}
                     emptyIcon={<FavoriteBorderRoundedIcon fontSize="inherit" />}
@@ -256,7 +256,7 @@ export default function JavCard(props) {
                     onMouseEnter={() => setFavoriteRatingEditing(true)}
                     onFocus={() => setFavoriteRatingEditing(true)}
                     onChangeActive={(_, value) =>
-                      setFavoriteRatingPreview(value >= 0.5 ? value : null)
+                      setFavoriteRatingPreview(value >= 1 ? value : null)
                     }
                     sx={{
                       flexShrink: 0,
@@ -284,7 +284,7 @@ export default function JavCard(props) {
                 ) : null}
                 {favoriteRating > 0 && !favoriteRatingEditing ? (
                   <span className="ml-1 shrink-0 text-xs font-semibold tabular-nums leading-none text-white">
-                    {favoriteRating.toFixed(1)}
+                    {Math.round(favoriteRating)}
                   </span>
                 ) : null}
               </span>

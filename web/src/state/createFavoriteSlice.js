@@ -5,7 +5,7 @@ export function createFavoriteSlice({ set, get }) {
   const lastFavoriteGroupFetchKeys = {}
   return {
     javFavoriteRatingEnabled: false,
-    javFavoriteRatingMin: 0.5,
+    javFavoriteRatingMin: 1,
     javFavoriteRatingMax: 5,
     javFavoriteGroupId: null,
     idolFavoriteGroupId: null,

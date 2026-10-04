@@ -44,10 +44,10 @@ function FilterChip({ label, onRemove }) {
 }
 
 function FavoriteRatingFilter({ enabled, min, max, onEnabledChange, onRangeChange }) {
-  const normalizedMin = Number.isFinite(Number(min)) ? Number(min) : 0.5
+  const normalizedMin = Number.isFinite(Number(min)) ? Number(min) : 1
   const normalizedMax = Number.isFinite(Number(max)) ? Number(max) : 5
-  const range = normalizedMin <= normalizedMax ? [normalizedMin, normalizedMax] : [0.5, 5]
-  const formatValue = (value) => (Number.isInteger(value) ? String(value) : value.toFixed(1))
+  const range = normalizedMin <= normalizedMax ? [normalizedMin, normalizedMax] : [1, 5]
+  const formatValue = (value) => String(Math.round(Number(value)) || 0)
   const toggleLabel = enabled
     ? zh('关闭喜爱度筛选', 'Disable favorite rating filter')
     : zh('启用喜爱度筛选', 'Enable favorite rating filter')
@@ -73,9 +73,9 @@ function FavoriteRatingFilter({ enabled, min, max, onEnabledChange, onRangeChang
         onChange={(_, value) => {
           if (Array.isArray(value)) onRangeChange?.(value)
         }}
-        min={0.5}
+        min={1}
         max={5}
-        step={0.5}
+        step={1}
         disableSwap
         disabled={!enabled}
         getAriaLabel={(index) =>
@@ -307,7 +307,7 @@ export default function TopBar({
   favoriteGroupsLoading = false,
   favoriteManagerOpen = false,
   favoriteRatingEnabled = false,
-  favoriteRatingMin = 0.5,
+  favoriteRatingMin = 1,
   favoriteRatingMax = 5,
   idolProfileFilters = {},
   buildFavoriteGroupUrl,

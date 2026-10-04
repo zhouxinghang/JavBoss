@@ -74,7 +74,7 @@ func parseJavFilterQuery(c *gin.Context) (javFilterQuery, bool) {
 		}
 		parsedMin, minErr := strconv.ParseFloat(favoriteRatingMinParam, 64)
 		parsedMax, maxErr := strconv.ParseFloat(favoriteRatingMaxParam, 64)
-		if minErr != nil || maxErr != nil || math.IsNaN(parsedMin) || math.IsNaN(parsedMax) || math.IsInf(parsedMin, 0) || math.IsInf(parsedMax, 0) || parsedMin < 0.5 || parsedMax > 5 || parsedMin > parsedMax || math.Abs(parsedMin*2-math.Round(parsedMin*2)) > 1e-9 || math.Abs(parsedMax*2-math.Round(parsedMax*2)) > 1e-9 {
+		if minErr != nil || maxErr != nil || math.IsNaN(parsedMin) || math.IsNaN(parsedMax) || math.IsInf(parsedMin, 0) || math.IsInf(parsedMax, 0) || parsedMin < 1 || parsedMax > 5 || parsedMin > parsedMax || math.Abs(parsedMin-math.Round(parsedMin)) > 1e-9 || math.Abs(parsedMax-math.Round(parsedMax)) > 1e-9 {
 			respondLocalizedError(c, http.StatusBadRequest, "喜爱度范围无效", "Invalid favorite rating range")
 			return query, false
 		}

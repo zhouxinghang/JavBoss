@@ -219,7 +219,7 @@ export default function useFavoriteGroups({
         javPrefix: '',
         javSoloOnly: false,
         javFavoriteRatingEnabled: false,
-        javFavoriteRatingMin: 0.5,
+        javFavoriteRatingMin: 1,
         javFavoriteRatingMax: 5,
         idolProfileFilters: createDefaultIdolProfileFilters(),
         javRandomMode: false,

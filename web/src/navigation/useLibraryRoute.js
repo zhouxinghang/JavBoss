@@ -142,7 +142,7 @@ export default function useLibraryRoute({ setJavSearchInput, setSearchInput, con
           javDirectoryIds: jav.tab === 'list' ? jav.directoryIds : [],
           javSoloOnly: jav.tab === 'list' ? jav.soloOnly : false,
           javFavoriteRatingEnabled: jav.tab === 'list' ? jav.favoriteRatingEnabled : false,
-          javFavoriteRatingMin: jav.tab === 'list' ? jav.favoriteRatingMin : 0.5,
+          javFavoriteRatingMin: jav.tab === 'list' ? jav.favoriteRatingMin : 1,
           javFavoriteRatingMax: jav.tab === 'list' ? jav.favoriteRatingMax : 5,
           javFavoriteGroupId: jav.tab === 'list' ? jav.favoriteGroupId : null,
           javPage: jav.random ? 1 : jav.page,

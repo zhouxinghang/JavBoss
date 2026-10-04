@@ -40,7 +40,7 @@ const parseJavPrefix = (raw) => {
 
 const parseFavoriteRating = (raw) => {
   const value = Number(String(raw || '').trim())
-  if (!Number.isFinite(value) || value < 0.5 || value > 5 || !Number.isInteger(value * 2)) {
+  if (!Number.isFinite(value) || value < 1 || value > 5 || !Number.isInteger(value)) {
     return null
   }
   return value
@@ -125,7 +125,7 @@ export const parseUrlState = (searchString = window.location.search, options = {
     prefix: parseJavPrefix(sp.get('prefix')),
     soloOnly: sp.get('solo') === '1',
     favoriteRatingEnabled,
-    favoriteRatingMin: favoriteRatingEnabled ? favoriteRatingMin : 0.5,
+    favoriteRatingMin: favoriteRatingEnabled ? favoriteRatingMin : 1,
     favoriteRatingMax: favoriteRatingEnabled ? favoriteRatingMax : 5,
     favoriteGroupId: parsePositiveInt(sp.get('favorite_group_id')),
     idolFavoriteGroupId: parsePositiveInt(sp.get('favorite_group_id')),
@@ -285,7 +285,7 @@ export const normalizeUrlStateFromStore = (store, tagsByName) => {
       prefix: store.javPrefix || '',
       soloOnly: Boolean(store.javSoloOnly),
       favoriteRatingEnabled: Boolean(store.javFavoriteRatingEnabled),
-      favoriteRatingMin: store.javFavoriteRatingMin ?? 0.5,
+      favoriteRatingMin: store.javFavoriteRatingMin ?? 1,
       favoriteRatingMax: store.javFavoriteRatingMax ?? 5,
       favoriteGroupId:
         store.javTab === 'idol'

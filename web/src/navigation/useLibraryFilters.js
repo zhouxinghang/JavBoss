@@ -124,7 +124,7 @@ export default function useLibraryFilters({
         javDirectoryIds: [],
         javSoloOnly: false,
         javFavoriteRatingEnabled: false,
-        javFavoriteRatingMin: 0.5,
+        javFavoriteRatingMin: 1,
         javFavoriteRatingMax: 5,
         idolFavoriteGroupId: null,
         javTags: clean,
@@ -440,10 +440,7 @@ export default function useLibraryFilters({
       })
     }
     if (javFavoriteRatingEnabled) {
-      const formatRating = (value) => {
-        const rating = Number(value)
-        return Number.isInteger(rating) ? String(rating) : rating.toFixed(1)
-      }
+      const formatRating = (value) => String(Math.round(Number(value)) || 0)
       const range = `${formatRating(javFavoriteRatingMin)}–${formatRating(javFavoriteRatingMax)}`
       items.push({
         key: 'jav-favorite-rating',
@@ -516,7 +513,7 @@ export default function useLibraryFilters({
         javDirectoryIds: [],
         javSoloOnly: false,
         javFavoriteRatingEnabled: false,
-        javFavoriteRatingMin: 0.5,
+        javFavoriteRatingMin: 1,
         javFavoriteRatingMax: 5,
         javRandomMode: false,
         javRandomSeed: null,
@@ -597,12 +594,12 @@ export default function useLibraryFilters({
       const normalizeFavoriteRating = (value, fallback) => {
         const parsed = Number(value)
         if (!Number.isFinite(parsed)) return fallback
-        return Math.min(5, Math.max(0.5, Math.round(parsed * 2) / 2))
+        return Math.min(5, Math.max(1, Math.round(parsed)))
       }
-      let nextFavoriteRatingMin = normalizeFavoriteRating(query?.favoriteRatingMin, 0.5)
+      let nextFavoriteRatingMin = normalizeFavoriteRating(query?.favoriteRatingMin, 1)
       let nextFavoriteRatingMax = normalizeFavoriteRating(query?.favoriteRatingMax, 5)
       if (nextFavoriteRatingMin > nextFavoriteRatingMax) {
-        nextFavoriteRatingMin = 0.5
+        nextFavoriteRatingMin = 1
         nextFavoriteRatingMax = 5
       }
       saveScrollBeforeUrlStateChange()
