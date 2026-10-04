@@ -2424,6 +2424,96 @@ func UpdateJavIdolAvatarURL(ctx context.Context, idolID int64, avatarURL string)
 	return nil
 }
 
+// AddJavIdolAvatar records a custom avatar URL in the idol's JSON avatar
+// collection. Adding an existing URL is a no-op; new URLs go to the front.
+func AddJavIdolAvatar(ctx context.Context, idolID int64, avatarURL string) error {
+	if idolID <= 0 {
+		return errors.New("idol id must be positive")
+	}
+	avatarURL = strings.TrimSpace(avatarURL)
+	if avatarURL == "" {
+		return errors.New("avatar url is required")
+	}
+	return common.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var idol models.JavIdol
+		if err := tx.Select("id", "custom_avatars").Where("id = ?", idolID).First(&idol).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return gorm.ErrRecordNotFound
+			}
+			return fmt.Errorf("find jav idol: %w", err)
+		}
+		for _, existing := range idol.CustomAvatars {
+			if existing == avatarURL {
+				return nil
+			}
+		}
+		next := make(models.JavIdolAvatars, 0, len(idol.CustomAvatars)+1)
+		next = append(next, avatarURL)
+		next = append(next, idol.CustomAvatars...)
+		if err := tx.Model(&models.JavIdol{}).
+			Where("id = ?", idolID).
+			UpdateColumn("custom_avatars", next).Error; err != nil {
+			return fmt.Errorf("add jav idol avatar: %w", err)
+		}
+		return nil
+	})
+}
+
+// ListJavIdolAvatars returns the idol's custom avatar collection, newest first.
+func ListJavIdolAvatars(ctx context.Context, idolID int64) ([]string, error) {
+	if idolID <= 0 {
+		return nil, errors.New("idol id must be positive")
+	}
+	var idol models.JavIdol
+	if err := common.DB.WithContext(ctx).
+		Select("id", "custom_avatars").
+		Where("id = ?", idolID).
+		First(&idol).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, gorm.ErrRecordNotFound
+		}
+		return nil, fmt.Errorf("list jav idol avatars: %w", err)
+	}
+	urls := make([]string, 0, len(idol.CustomAvatars))
+	urls = append(urls, idol.CustomAvatars...)
+	return urls, nil
+}
+
+// DeleteJavIdolAvatar removes one URL from the idol's custom avatar collection.
+func DeleteJavIdolAvatar(ctx context.Context, idolID int64, avatarURL string) error {
+	if idolID <= 0 {
+		return errors.New("idol id must be positive")
+	}
+	target := strings.TrimSpace(avatarURL)
+	return common.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var idol models.JavIdol
+		if err := tx.Select("id", "custom_avatars").Where("id = ?", idolID).First(&idol).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return gorm.ErrRecordNotFound
+			}
+			return fmt.Errorf("find jav idol: %w", err)
+		}
+		next := make(models.JavIdolAvatars, 0, len(idol.CustomAvatars))
+		removed := false
+		for _, existing := range idol.CustomAvatars {
+			if existing == target {
+				removed = true
+				continue
+			}
+			next = append(next, existing)
+		}
+		if !removed {
+			return nil
+		}
+		if err := tx.Model(&models.JavIdol{}).
+			Where("id = ?", idolID).
+			UpdateColumn("custom_avatars", next).Error; err != nil {
+			return fmt.Errorf("delete jav idol avatar: %w", err)
+		}
+		return nil
+	})
+}
+
 // UpdateJavIdol updates editable idol profile fields and replaces aliases.
 func UpdateJavIdol(ctx context.Context, idolID int64, input JavIdolUpdateInput, directoryIDs []int64) (*JavIdolSummary, error) {
 	if idolID <= 0 {
@@ -3898,6 +3988,9 @@ func MergeJavIdols(ctx context.Context, canonicalID int64, sourceIDs []int64, di
 		if err := moveJavIdolFavoriteMapsTx(tx, canonicalID, cleanSourceIDs); err != nil {
 			return err
 		}
+		if err := moveJavIdolAvatarsTx(tx, canonical, sources); err != nil {
+			return err
+		}
 		if err := inheritJavIdolCoverTx(tx, canonical, sources); err != nil {
 			return err
 		}
@@ -4167,6 +4260,41 @@ func inheritJavIdolCoverTx(tx *gorm.DB, canonical models.JavIdol, sources []mode
 			return fmt.Errorf("inherit jav idol cover: %w", err)
 		}
 		return nil
+	}
+	return nil
+}
+
+// moveJavIdolAvatarsTx merges the custom avatar collections of the source idols
+// into the canonical idol's JSON column, dropping duplicates.
+func moveJavIdolAvatarsTx(tx *gorm.DB, canonical models.JavIdol, sources []models.JavIdol) error {
+	merged := make(models.JavIdolAvatars, 0, len(canonical.CustomAvatars))
+	seen := make(map[string]struct{}, len(canonical.CustomAvatars))
+	appendUnique := func(url string) {
+		url = strings.TrimSpace(url)
+		if url == "" {
+			return
+		}
+		if _, ok := seen[url]; ok {
+			return
+		}
+		seen[url] = struct{}{}
+		merged = append(merged, url)
+	}
+	for _, url := range canonical.CustomAvatars {
+		appendUnique(url)
+	}
+	for _, source := range sources {
+		for _, url := range source.CustomAvatars {
+			appendUnique(url)
+		}
+	}
+	if len(merged) == len(canonical.CustomAvatars) {
+		return nil
+	}
+	if err := tx.Model(&models.JavIdol{}).
+		Where("id = ?", canonical.ID).
+		UpdateColumn("custom_avatars", merged).Error; err != nil {
+		return fmt.Errorf("merge jav idol avatars: %w", err)
 	}
 	return nil
 }

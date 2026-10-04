@@ -80,6 +80,50 @@ func (images JavSampleImages) MarshalJSON() ([]byte, error) {
 	return json.Marshal(sampleImagesAlias(images))
 }
 
+// JavIdolAvatars persists an idol's custom avatar collection (uploaded files
+// and manually added image URLs) as a JSON array, newest first.
+type JavIdolAvatars []string
+
+func (avatars JavIdolAvatars) Value() (driver.Value, error) {
+	if avatars == nil {
+		avatars = JavIdolAvatars{}
+	}
+	data, err := json.Marshal(avatars)
+	if err != nil {
+		return nil, fmt.Errorf("marshal JAV idol avatars: %w", err)
+	}
+	return string(data), nil
+}
+
+func (avatars *JavIdolAvatars) Scan(value any) error {
+	if avatars == nil {
+		return fmt.Errorf("scan JAV idol avatars into nil receiver")
+	}
+	var data []byte
+	switch typed := value.(type) {
+	case nil:
+		*avatars = JavIdolAvatars{}
+		return nil
+	case string:
+		data = []byte(typed)
+	case []byte:
+		data = typed
+	default:
+		return fmt.Errorf("scan JAV idol avatars from %T", value)
+	}
+	if raw := strings.TrimSpace(string(data)); raw == "" || raw == "null" {
+		*avatars = JavIdolAvatars{}
+		return nil
+	}
+	if err := json.Unmarshal(data, avatars); err != nil {
+		return fmt.Errorf("unmarshal JAV idol avatars: %w", err)
+	}
+	if *avatars == nil {
+		*avatars = JavIdolAvatars{}
+	}
+	return nil
+}
+
 // Jav stores metadata fetched for a given code (may map to multiple videos).
 type Jav struct {
 	ID             int64           `json:"id" gorm:"primaryKey"`
@@ -153,22 +197,23 @@ type JavTagCategory struct {
 }
 
 type JavIdol struct {
-	ID            int64      `json:"id" gorm:"primaryKey"`
-	Name          string     `json:"name" gorm:"uniqueIndex"`
-	RomanName     string     `json:"roman_name"`
-	JapaneseName  string     `json:"japanese_name"`
-	ChineseName   string     `json:"chinese_name"`
-	HeightCM      *int       `json:"height_cm"`
-	BirthDate     *time.Time `json:"birth_date"`
-	Bust          *int       `json:"bust"`
-	Waist         *int       `json:"waist"`
-	Hips          *int       `json:"hips"`
-	Cup           *int       `json:"cup"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at"`
-	CoverJavID    *int64     `json:"cover_jav_id" gorm:"index"`
-	CoverCropLeft float64    `json:"cover_crop_left" gorm:"not null;default:0.53"`
-	AvatarURL     string     `json:"avatar_url" gorm:"not null;default:''"`
+	ID            int64          `json:"id" gorm:"primaryKey"`
+	Name          string         `json:"name" gorm:"uniqueIndex"`
+	RomanName     string         `json:"roman_name"`
+	JapaneseName  string         `json:"japanese_name"`
+	ChineseName   string         `json:"chinese_name"`
+	HeightCM      *int           `json:"height_cm"`
+	BirthDate     *time.Time     `json:"birth_date"`
+	Bust          *int           `json:"bust"`
+	Waist         *int           `json:"waist"`
+	Hips          *int           `json:"hips"`
+	Cup           *int           `json:"cup"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
+	CoverJavID    *int64         `json:"cover_jav_id" gorm:"index"`
+	CoverCropLeft float64        `json:"cover_crop_left" gorm:"not null;default:0.53"`
+	AvatarURL     string         `json:"avatar_url" gorm:"not null;default:''"`
+	CustomAvatars JavIdolAvatars `json:"-" gorm:"type:text;not null;default:'[]'"`
 }
 
 type JavIdolAlias struct {

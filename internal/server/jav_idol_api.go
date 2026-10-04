@@ -192,7 +192,13 @@ func mergeJavIdols(c *gin.Context) {
 		return
 	}
 	if common.IdolAvatarManager != nil {
-		common.IdolAvatarManager.Remove(req.MergeIDs...)
+		// Custom avatars are migrated by the merge transaction; only drop the
+		// merged idols' remote caches.
+		for _, sourceID := range req.MergeIDs {
+			if sourceID > 0 && sourceID != req.CanonicalID {
+				common.IdolAvatarManager.RemoveRemote(sourceID)
+			}
+		}
 	}
 
 	items := []dbpkg.JavIdolSummary{*item}

@@ -135,6 +135,7 @@ func RegisterRoutes(router gin.IRoutes) {
 	router.GET("/jav/idols/:id/avatar", getJavIdolAvatar)
 	router.PUT("/jav/idols/:id/avatar", updateJavIdolAvatar)
 	router.POST("/jav/idols/:id/avatar/refresh", refreshJavIdolAvatar)
+	router.POST("/jav/idols/:id/avatar/upload", uploadJavIdolAvatar)
 	router.GET("/jav/idols/:id/avatar/options", listJavIdolAvatarOptions)
 	router.GET("/jav/idols/:id/avatar/candidates/:key", getJavIdolAvatarCandidate)
 	router.GET("/jav/idols/:id/cover-options", listJavIdolCoverOptions)

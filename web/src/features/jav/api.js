@@ -472,7 +472,9 @@ export function javIdolAvatarCandidateUrl(id, key) {
 }
 
 export async function fetchJavIdolAvatarOptions(id) {
-  const res = await apiFetch(`/jav/idols/${encodeURIComponent(id)}/avatar/options`)
+  const res = await apiFetch(`/jav/idols/${encodeURIComponent(id)}/avatar/options`, {
+    cache: 'no-store',
+  })
   if (!res.ok) {
     throw await apiError(res)
   }
@@ -493,6 +495,31 @@ export async function updateJavIdolAvatar(id, key = '') {
     throw await apiError(res)
   }
   return res.json().catch(() => ({ key }))
+}
+
+export async function uploadJavIdolAvatar(id, file) {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await apiFetch(`/jav/idols/${encodeURIComponent(id)}/avatar/upload`, {
+    method: 'POST',
+    body: form,
+  })
+  if (!res.ok) {
+    throw await apiError(res)
+  }
+  return res.json().catch(() => ({}))
+}
+
+export async function setJavIdolAvatarURL(id, url) {
+  const res = await apiFetch(`/jav/idols/${encodeURIComponent(id)}/avatar`, {
+    method: 'PUT',
+    headers: jsonHeaders,
+    body: JSON.stringify({ url }),
+  })
+  if (!res.ok) {
+    throw await apiError(res)
+  }
+  return res.json().catch(() => ({}))
 }
 
 export async function refreshJavIdolAvatar(id) {

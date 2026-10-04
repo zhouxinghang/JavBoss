@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import {
   fetchJavIdolAvatarOptions,
   javIdolAvatarCandidateUrl,
   refreshJavIdolAvatar,
+  setJavIdolAvatarURL,
   updateJavIdolAvatar,
+  uploadJavIdolAvatar,
 } from '@/features/jav/api'
 import AppModal from '@/shared/ui/AppModal'
 import { zh } from '@/utils/i18n'
@@ -28,9 +31,13 @@ export default function JavIdolAvatarModal({
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [addingUrl, setAddingUrl] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
   const [error, setError] = useState('')
   const [selectedKey, setSelectedKey] = useState(AUTO_KEY)
   const [cacheVersion, setCacheVersion] = useState(0)
+  const fileInputRef = useRef(null)
 
   const loadOptions = useMemo(() => {
     return async (cancelledRef) => {
@@ -56,6 +63,7 @@ export default function JavIdolAvatarModal({
     setOptions([])
     setSelectedKey(AUTO_KEY)
     setCacheVersion(0)
+    setUrlInput('')
     loadOptions(cancelledRef)
     return () => {
       cancelledRef.cancelled = true
@@ -80,6 +88,42 @@ export default function JavIdolAvatarModal({
     }
   }
 
+  const handleUpload = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || !hasIdolId || uploading || saving || refreshing) return
+    setUploading(true)
+    setError('')
+    try {
+      await uploadJavIdolAvatar(idolId, file)
+      setCacheVersion((current) => current + 1)
+      await loadOptions({ cancelled: false })
+      onSaved?.()
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleAddURL = async () => {
+    const url = urlInput.trim()
+    if (!url || !hasIdolId || addingUrl || saving || refreshing || uploading) return
+    setAddingUrl(true)
+    setError('')
+    try {
+      await setJavIdolAvatarURL(idolId, url)
+      setUrlInput('')
+      setCacheVersion((current) => current + 1)
+      await loadOptions({ cancelled: false })
+      onSaved?.()
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setAddingUrl(false)
+    }
+  }
+
   const handleSave = async () => {
     if (!hasIdolId || saving) return
     setSaving(true)
@@ -98,12 +142,13 @@ export default function JavIdolAvatarModal({
   if (!open) return null
 
   const displayName = getIdolDisplayName(item, preferChineseName)
+  const busy = saving || refreshing || uploading || addingUrl
 
   return (
     <AppModal
       ariaLabel={zh('选择女优头像', 'Select idol avatar')}
       className="px-4 py-6"
-      closeDisabled={saving || refreshing}
+      closeDisabled={busy}
       contentClassName="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl"
       onClose={onClose}
       zIndex={1600}
@@ -126,6 +171,47 @@ export default function JavIdolAvatarModal({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded border border-slate-200 bg-slate-50 p-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png"
+            className="hidden"
+            onChange={handleUpload}
+          />
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-400"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!hasIdolId || busy}
+          >
+            <UploadFileRoundedIcon sx={{ fontSize: 16 }} />
+            {uploading ? zh('上传中…', 'Uploading...') : zh('上传图片', 'Upload image')}
+          </button>
+          <div className="flex min-w-[12rem] flex-1 items-center gap-2">
+            <input
+              value={urlInput}
+              onChange={(event) => setUrlInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  handleAddURL()
+                }
+              }}
+              placeholder={zh('粘贴图片链接', 'Paste an image URL')}
+              className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-slate-900"
+              disabled={busy}
+            />
+            <button
+              type="button"
+              className="rounded bg-slate-950 px-3 py-1.5 text-sm text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+              onClick={handleAddURL}
+              disabled={!hasIdolId || !urlInput.trim() || busy}
+            >
+              {addingUrl ? zh('添加中…', 'Adding...') : zh('添加链接', 'Add URL')}
+            </button>
+          </div>
+        </div>
         {loading ? (
           <div className="flex h-40 items-center justify-center text-sm text-slate-500">
             {zh('加载中…', 'Loading...')}
@@ -141,7 +227,8 @@ export default function JavIdolAvatarModal({
             {options.map((option) => (
               <AvatarOption
                 key={option.key}
-                label={option.source || zh('未命名来源', 'Unknown source')}
+                label={avatarOptionLabel(option)}
+                description={option?.kind ? zh('自定义头像', 'Custom avatar') : ''}
                 imageSrc={
                   javIdolAvatarCandidateUrl(idolId, option.key) +
                   (cacheVersion ? `?v=${cacheVersion}` : '')
@@ -165,7 +252,7 @@ export default function JavIdolAvatarModal({
           type="button"
           className="flex items-center gap-1.5 rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
           onClick={handleRefresh}
-          disabled={!hasIdolId || refreshing || saving}
+          disabled={!hasIdolId || busy}
         >
           <RefreshRoundedIcon sx={{ fontSize: 16 }} />
           {refreshing ? zh('刷新中…', 'Refreshing...') : zh('重新下载', 'Re-download')}
@@ -183,7 +270,7 @@ export default function JavIdolAvatarModal({
             type="button"
             className="rounded bg-slate-950 px-3 py-1.5 text-sm text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
             onClick={handleSave}
-            disabled={!hasIdolId || saving || refreshing}
+            disabled={!hasIdolId || busy}
           >
             {saving ? zh('保存中…', 'Saving...') : zh('保存', 'Save')}
           </button>
@@ -191,6 +278,17 @@ export default function JavIdolAvatarModal({
       </div>
     </AppModal>
   )
+}
+
+function avatarOptionLabel(option) {
+  switch (option?.kind) {
+    case 'upload':
+      return zh('本地上传', 'Uploaded')
+    case 'url':
+      return zh('图片链接', 'Image URL')
+    default:
+      return option?.source || zh('未命名来源', 'Unknown source')
+  }
 }
 
 function AvatarOption({ label, description = '', imageSrc = '', selected = false, onSelect }) {

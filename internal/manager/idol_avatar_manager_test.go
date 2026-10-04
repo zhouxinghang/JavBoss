@@ -3,8 +3,10 @@ package manager
 import (
 	"bytes"
 	"context"
+	"errors"
 	"image"
 	"image/jpeg"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -107,6 +109,80 @@ func TestIdolAvatarManagerEnsureAutoReturnsNotFoundForUnknownName(t *testing.T) 
 	manager, _, _ := newTestAvatarManager(t)
 	if _, _, err := manager.EnsureAuto(context.Background(), 7, []string{"不存在"}); err == nil {
 		t.Fatal("EnsureAuto should fail for an unknown idol name")
+	}
+}
+
+func TestIdolAvatarManagerSaveUploadFlow(t *testing.T) {
+	manager, _, _ := newTestAvatarManager(t)
+	imageBytes := testAvatarJPEG(t)
+	ctx := context.Background()
+
+	uploadURL, err := manager.SaveUpload(42, ".jpg", bytes.NewReader(imageBytes))
+	if err != nil {
+		t.Fatalf("SaveUpload: %v", err)
+	}
+	if !IsUploadAvatarURL(uploadURL) {
+		t.Fatalf("SaveUpload url = %q, want upload scheme", uploadURL)
+	}
+	path, ok := manager.LocalPath(42, uploadURL)
+	if !ok {
+		t.Fatal("LocalPath did not report the uploaded avatar")
+	}
+	if !strings.HasPrefix(filepath.Base(path), "upload-") {
+		t.Fatalf("upload file name = %q", filepath.Base(path))
+	}
+	// Uploads carry no idol identifier; ownership is tracked by the database.
+	if _, ok := manager.LocalPath(99, uploadURL); !ok {
+		t.Fatal("an upload URL should resolve regardless of the idol id")
+	}
+	if ensured, err := manager.Ensure(ctx, 42, uploadURL); err != nil || ensured != path {
+		t.Fatalf("Ensure uploaded = %q err=%v", ensured, err)
+	}
+
+	// A second upload is stored independently and does not replace the first.
+	secondURL, err := manager.SaveUpload(42, ".png", bytes.NewReader(testAvatarPNG(t)))
+	if err != nil {
+		t.Fatalf("SaveUpload second: %v", err)
+	}
+	if secondURL == uploadURL {
+		t.Fatal("two uploads must get distinct URLs")
+	}
+	if _, ok := manager.LocalPath(42, secondURL); !ok {
+		t.Fatal("the second upload was not stored")
+	}
+
+	// RemoveRemote clears downloaded caches but must preserve uploads.
+	manager.RemoveRemote(42)
+	if _, ok := manager.LocalPath(42, uploadURL); !ok {
+		t.Fatal("RemoveRemote deleted an uploaded avatar")
+	}
+
+	manager.DeleteUpload(uploadURL)
+	if _, ok := manager.LocalPath(42, uploadURL); ok {
+		t.Fatal("DeleteUpload left the file behind")
+	}
+}
+
+func testAvatarPNG(t *testing.T) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 256, 256))
+	for i := range img.Pix {
+		img.Pix[i] = byte(i * 5)
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatalf("encode png: %v", err)
+	}
+	if int64(buf.Len()) < minValidIdolAvatarSizeBytes {
+		t.Fatalf("fixture png too small: %d bytes", buf.Len())
+	}
+	return buf.Bytes()
+}
+
+func TestIdolAvatarManagerSaveUploadRejectsUnsupportedType(t *testing.T) {
+	manager, _, _ := newTestAvatarManager(t)
+	if _, err := manager.SaveUpload(42, ".gif", bytes.NewReader(testAvatarJPEG(t))); !errors.Is(err, ErrIdolAvatarUploadType) {
+		t.Fatalf("err = %v, want ErrIdolAvatarUploadType", err)
 	}
 }
 

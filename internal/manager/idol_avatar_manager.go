@@ -2,6 +2,7 @@ package manager
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
@@ -25,8 +26,22 @@ import (
 
 const minValidIdolAvatarSizeBytes int64 = 1024
 
+// maxIdolAvatarUploadBytes caps the size of a user-uploaded avatar file.
+const maxIdolAvatarUploadBytes int64 = 20 << 20
+
+// idolAvatarUploadScheme marks avatar URLs that point to a locally uploaded file
+// instead of a remote image. The file name is carried as the URL opaque part.
+const idolAvatarUploadScheme = "upload"
+
 // ErrIdolAvatarNotFound indicates that no avatar is available for the idol.
 var ErrIdolAvatarNotFound = errors.New("idol avatar not found")
+
+// Errors returned while saving a user-uploaded avatar file.
+var (
+	ErrIdolAvatarUploadTooLarge = errors.New("idol avatar upload is too large")
+	ErrIdolAvatarUploadType     = errors.New("idol avatar upload type is invalid")
+	ErrIdolAvatarUploadInvalid  = errors.New("idol avatar upload is invalid")
+)
 
 // IdolAvatarManager downloads and caches idol avatars from the Gfriends repository.
 // Every candidate image is stored as "<idolID>-<candidateKey>.<ext>" so an idol
@@ -91,6 +106,10 @@ func (m *IdolAvatarManager) LocalPath(idolID int64, imageURL string) (string, bo
 	if imageURL == "" {
 		return "", false
 	}
+	if name, ok := uploadAvatarName(imageURL); ok {
+		target := filepath.Join(m.avatarDir, name)
+		return target, isValidIdolAvatarFile(target)
+	}
 	target := filepath.Join(m.avatarDir, idolAvatarFileName(idolID, imageURL))
 	return target, isValidIdolAvatarFile(target)
 }
@@ -117,6 +136,9 @@ func (m *IdolAvatarManager) Ensure(ctx context.Context, idolID int64, imageURL s
 	}
 	if target, ok := m.LocalPath(idolID, imageURL); ok {
 		return target, nil
+	}
+	if IsUploadAvatarURL(imageURL) {
+		return "", ErrIdolAvatarNotFound
 	}
 	return m.download(ctx, idolID, imageURL)
 }
@@ -160,6 +182,82 @@ func (m *IdolAvatarManager) FindCandidate(ctx context.Context, key string, names
 	return gfriends.Image{}, false
 }
 
+// SaveUpload stores a user-uploaded avatar file and returns the synthetic
+// "upload:" URL that selects it. The file name embeds the idol ID so uploads
+// can be pruned when the idol switches to another avatar.
+func (m *IdolAvatarManager) SaveUpload(idolID int64, ext string, input io.Reader) (string, error) {
+	if m == nil {
+		return "", ErrIdolAvatarNotFound
+	}
+	if idolID <= 0 {
+		return "", errors.New("idol id must be positive")
+	}
+	ext = normalizeIdolAvatarUploadExt(ext)
+	if ext == "" {
+		return "", ErrIdolAvatarUploadType
+	}
+	if err := os.MkdirAll(m.avatarDir, 0o755); err != nil {
+		return "", fmt.Errorf("ensure idol avatar dir: %w", err)
+	}
+
+	var raw [8]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", fmt.Errorf("generate idol avatar name: %w", err)
+	}
+	// Upload file names are independent of the idol ID; ownership lives in the
+	// jav_idol_avatar table so merging idols needs no file renames.
+	name := idolAvatarUploadScheme + "-" + hex.EncodeToString(raw[:]) + ext
+	target := filepath.Join(m.avatarDir, name)
+	tmp := target + ".tmp"
+	out, err := os.Create(tmp)
+	if err != nil {
+		return "", fmt.Errorf("create idol avatar temp: %w", err)
+	}
+	written, err := io.Copy(out, io.LimitReader(input, maxIdolAvatarUploadBytes+1))
+	if err != nil {
+		out.Close()
+		_ = os.Remove(tmp)
+		return "", fmt.Errorf("write idol avatar upload: %w", err)
+	}
+	if err := out.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return "", fmt.Errorf("close idol avatar upload: %w", err)
+	}
+	if written > maxIdolAvatarUploadBytes {
+		_ = os.Remove(tmp)
+		return "", ErrIdolAvatarUploadTooLarge
+	}
+	if written < minValidIdolAvatarSizeBytes || !isDecodableCoverFile(tmp) {
+		_ = os.Remove(tmp)
+		return "", ErrIdolAvatarUploadInvalid
+	}
+	_ = os.Remove(target)
+	if err := os.Rename(tmp, target); err != nil {
+		_ = os.Remove(tmp)
+		return "", fmt.Errorf("finalize idol avatar upload: %w", err)
+	}
+	return idolAvatarUploadScheme + ":" + name, nil
+}
+
+// DeleteUpload removes a stored upload file. Ownership is tracked by the
+// jav_idol_avatar table, so the file itself carries no idol identifier.
+func (m *IdolAvatarManager) DeleteUpload(imageURL string) {
+	if m == nil {
+		return
+	}
+	name, ok := uploadAvatarName(imageURL)
+	if !ok {
+		return
+	}
+	_ = os.Remove(filepath.Join(m.avatarDir, name))
+}
+
+// IsUploadAvatarURL reports whether the avatar URL points to a local upload.
+func IsUploadAvatarURL(imageURL string) bool {
+	_, ok := uploadAvatarName(imageURL)
+	return ok
+}
+
 // Remove deletes all cached avatars (candidates and legacy files) for the idols.
 func (m *IdolAvatarManager) Remove(idolIDs ...int64) {
 	if m == nil {
@@ -172,6 +270,21 @@ func (m *IdolAvatarManager) Remove(idolIDs ...int64) {
 		for _, file := range listIdolAvatarFiles(m.avatarDir, idolID) {
 			_ = os.Remove(file)
 		}
+	}
+}
+
+// RemoveRemote deletes downloaded candidate caches for the idol but keeps any
+// locally uploaded avatar files, which cannot be re-downloaded.
+func (m *IdolAvatarManager) RemoveRemote(idolID int64) {
+	if m == nil || idolID <= 0 {
+		return
+	}
+	uploadPrefix := strconv.FormatInt(idolID, 10) + "-upload-"
+	for _, file := range listIdolAvatarFiles(m.avatarDir, idolID) {
+		if strings.HasPrefix(filepath.Base(file), uploadPrefix) {
+			continue
+		}
+		_ = os.Remove(file)
 	}
 }
 
@@ -248,6 +361,30 @@ func (m *IdolAvatarManager) downloadOne(ctx context.Context, idolID int64, image
 // legacy "<id>.<ext>" auto file so old caches are replaced by keyed candidates.
 func idolAvatarFileName(idolID int64, imageURL string) string {
 	return strconv.FormatInt(idolID, 10) + "-" + CandidateKey(imageURL) + idolAvatarExt(imageURL)
+}
+
+// uploadAvatarName extracts the safe base file name from an upload avatar URL.
+func uploadAvatarName(imageURL string) (string, bool) {
+	parsed, err := url.Parse(strings.TrimSpace(imageURL))
+	if err != nil || parsed == nil || parsed.Scheme != idolAvatarUploadScheme {
+		return "", false
+	}
+	name := strings.TrimSpace(parsed.Opaque)
+	if name == "" || name == "." || name == ".." || name != filepath.Base(name) {
+		return "", false
+	}
+	return name, true
+}
+
+func normalizeIdolAvatarUploadExt(ext string) string {
+	switch strings.ToLower(strings.TrimSpace(ext)) {
+	case ".jpg", ".jpeg":
+		return ".jpg"
+	case ".png":
+		return ".png"
+	default:
+		return ""
+	}
 }
 
 func idolAvatarExt(imageURL string) string {

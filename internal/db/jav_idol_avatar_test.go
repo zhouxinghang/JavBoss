@@ -83,3 +83,89 @@ func TestUpdateJavIdolAvatarURL(t *testing.T) {
 		t.Fatal("expected ErrRecordNotFound for a missing idol")
 	}
 }
+
+func TestJavIdolAvatarCollection(t *testing.T) {
+	gdb := openTestDB(t)
+	ctx := context.Background()
+
+	idol := models.JavIdol{Name: "Collection Idol"}
+	if err := gdb.Create(&idol).Error; err != nil {
+		t.Fatalf("create idol: %v", err)
+	}
+
+	uploadURL := "upload:upload-abc123.jpg"
+	manualURL := "https://example.com/custom.jpg"
+	for _, url := range []string{uploadURL, manualURL, uploadURL} {
+		if err := AddJavIdolAvatar(ctx, idol.ID, url); err != nil {
+			t.Fatalf("AddJavIdolAvatar(%q): %v", url, err)
+		}
+	}
+
+	urls, err := ListJavIdolAvatars(ctx, idol.ID)
+	if err != nil {
+		t.Fatalf("ListJavIdolAvatars: %v", err)
+	}
+	if len(urls) != 2 {
+		t.Fatalf("avatars = %#v, want 2 unique entries", urls)
+	}
+
+	if err := DeleteJavIdolAvatar(ctx, idol.ID, uploadURL); err != nil {
+		t.Fatalf("DeleteJavIdolAvatar: %v", err)
+	}
+	urls, err = ListJavIdolAvatars(ctx, idol.ID)
+	if err != nil || len(urls) != 1 || urls[0] != manualURL {
+		t.Fatalf("avatars after delete = %#v err=%v", urls, err)
+	}
+
+	if _, err := ListJavIdolAvatars(ctx, 0); err == nil {
+		t.Fatal("expected an error for a non-positive idol id")
+	}
+}
+
+func TestMergeJavIdolsMovesAvatarCollection(t *testing.T) {
+	gdb := openTestDB(t)
+	ctx := context.Background()
+
+	canonical := models.JavIdol{Name: "Canonical Idol"}
+	source := models.JavIdol{Name: "Source Idol"}
+	if err := gdb.Create(&canonical).Error; err != nil {
+		t.Fatalf("create canonical: %v", err)
+	}
+	if err := gdb.Create(&source).Error; err != nil {
+		t.Fatalf("create source: %v", err)
+	}
+
+	shared := "https://example.com/shared.jpg"
+	if err := AddJavIdolAvatar(ctx, canonical.ID, shared); err != nil {
+		t.Fatalf("add canonical avatar: %v", err)
+	}
+	for _, url := range []string{shared, "upload:upload-source.jpg"} {
+		if err := AddJavIdolAvatar(ctx, source.ID, url); err != nil {
+			t.Fatalf("add source avatar %q: %v", url, err)
+		}
+	}
+
+	if _, err := MergeJavIdols(ctx, canonical.ID, []int64{source.ID}, nil); err != nil {
+		t.Fatalf("MergeJavIdols: %v", err)
+	}
+
+	urls, err := ListJavIdolAvatars(ctx, canonical.ID)
+	if err != nil {
+		t.Fatalf("ListJavIdolAvatars: %v", err)
+	}
+	slices.Sort(urls)
+	want := []string{"upload:upload-source.jpg", shared}
+	slices.Sort(want)
+	if !slices.Equal(urls, want) {
+		t.Fatalf("merged avatars = %#v, want %#v", urls, want)
+	}
+
+	// The merged idol is gone, so its collection lives on only via the canonical idol.
+	var sourceCount int64
+	if err := gdb.Model(&models.JavIdol{}).Where("id = ?", source.ID).Count(&sourceCount).Error; err != nil {
+		t.Fatalf("count source idol: %v", err)
+	}
+	if sourceCount != 0 {
+		t.Fatalf("source idol still exists")
+	}
+}
