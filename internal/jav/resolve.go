@@ -61,12 +61,12 @@ func providersForCode(code string) []Provider {
 	case strings.HasPrefix(code, "FC2-PPV-"):
 		return []Provider{ProviderJavDBAPI}
 	case strings.HasPrefix(code, "GANA-"):
-		return []Provider{ProviderJavMenu, ProviderJavBus}
+		return []Provider{ProviderJavMenu, ProviderJavBus, ProviderJavDBAPI}
 	case strings.HasPrefix(code, "STARS-"):
-		return []Provider{ProviderJavBus, ProviderAvmoo}
+		return []Provider{ProviderJavBus, ProviderAvmoo, ProviderJavDBAPI}
 	case strings.HasPrefix(code, "AP-"):
-		return []Provider{ProviderAvmoo}
+		return []Provider{ProviderAvmoo, ProviderJavDBAPI}
 	default:
-		return []Provider{ProviderJavBus}
+		return []Provider{ProviderJavBus, ProviderJavDBAPI}
 	}
 }
