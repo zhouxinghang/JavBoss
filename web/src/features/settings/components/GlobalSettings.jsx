@@ -76,10 +76,15 @@ export default function GlobalSettings({ onToast, open, onClose }) {
         onToast(zh('目录任务已启动', 'Directory task started'), 4000)
         return result
       }}
-      onScanDirectory={async (id) => {
-        const result = await scanDirectory(id)
+      onScanDirectory={async (id, { force = false } = {}) => {
+        const result = await scanDirectory(id, { force })
         await loadDirectories()
-        onToast(zh('目录扫描已启动', 'Directory scan started'), 4000)
+        onToast(
+          force
+            ? zh('强制扫描已启动（忽略失败缓存）', 'Force scan started (ignoring failure cache)')
+            : zh('目录扫描已启动', 'Directory scan started'),
+          4000
+        )
         return result
       }}
       onRefreshDirectories={loadDirectories}

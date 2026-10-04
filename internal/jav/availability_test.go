@@ -231,7 +231,7 @@ func TestAvailabilityUsesFreshClientsAndBypassesLookupCache(t *testing.T) {
 	if httpClients[0] == httpClients[1] || httpClients[0].Transport == httpClients[1].Transport {
 		t.Fatal("HTTP client or transport reused between checks")
 	}
-	cached, ok, err := lookupCacheGet[JavInfo](c, lookupCacheKey(ProviderJavBus, "lookup_jav", "SSIS-001"))
+	cached, ok, err := lookupCacheGet[JavInfo](c, context.Background(), lookupCacheKey(ProviderJavBus, "lookup_jav", "SSIS-001"))
 	if !ok || err != nil || cached.Title != "A real title" {
 		t.Fatal("check changed normal lookup cache")
 	}

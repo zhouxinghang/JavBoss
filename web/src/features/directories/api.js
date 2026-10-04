@@ -67,8 +67,12 @@ export async function processDirectory(id, mode, layout = 'prefix') {
   return res.json()
 }
 
-export async function scanDirectory(id) {
-  const res = await apiFetch(`/directories/${id}/scan`, {
+// scanDirectory triggers one manual directory scan (and JAV scrape). Pass
+// { force: true } to ignore the seven-day negative caches so codes that failed
+// before are requested again.
+export async function scanDirectory(id, { force = false } = {}) {
+  const query = force ? '?force=true' : ''
+  const res = await apiFetch(`/directories/${id}/scan${query}`, {
     method: 'POST',
   })
   if (!res.ok) {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import BoltRoundedIcon from '@mui/icons-material/BoltRounded'
 import BuildRoundedIcon from '@mui/icons-material/BuildRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
@@ -422,14 +423,14 @@ export default function DirectoryManager({
     }
   }
 
-  const handleScan = async (dir) => {
+  const handleScan = async (dir, { force = false } = {}) => {
     if (!dir?.id || directoryWorkStatus(dir) !== 'idle') return
 
     setScanningId(dir.id)
     setRowErrorId(null)
     setRowErrorMsg('')
     try {
-      await onScan?.(dir.id)
+      await onScan?.(dir.id, { force })
     } catch (err) {
       setRowErrorId(dir.id)
       setRowErrorMsg(getErrorMessage(err))
@@ -695,16 +696,28 @@ export default function DirectoryManager({
                     {!isEditing ? (
                       <>
                         {scanningId !== d.id && status !== 'scanning' && (
-                          <DirectoryRowIconButton
-                            label={zh(
-                              '手动扫描（点击立刻进行一次目录扫描和 JAV 刮削）',
-                              'Manual scan (click to immediately scan the directory and scrape JAV metadata)'
-                            )}
-                            onClick={() => handleScan(d)}
-                            disabled={d.is_delete || working}
-                          >
-                            <PlayArrowRoundedIcon fontSize="small" />
-                          </DirectoryRowIconButton>
+                          <>
+                            <DirectoryRowIconButton
+                              label={zh(
+                                '手动扫描（点击立刻进行一次目录扫描和 JAV 刮削）',
+                                'Manual scan (click to immediately scan the directory and scrape JAV metadata)'
+                              )}
+                              onClick={() => handleScan(d)}
+                              disabled={d.is_delete || working}
+                            >
+                              <PlayArrowRoundedIcon fontSize="small" />
+                            </DirectoryRowIconButton>
+                            <DirectoryRowIconButton
+                              label={zh(
+                                '强制手动扫描（忽略 7 天失败缓存，重新刮削失败的视频）',
+                                'Force manual scan (ignore the 7-day failure cache and re-scrape videos that failed)'
+                              )}
+                              onClick={() => handleScan(d, { force: true })}
+                              disabled={d.is_delete || working}
+                            >
+                              <BoltRoundedIcon fontSize="small" />
+                            </DirectoryRowIconButton>
+                          </>
                         )}
                         <DirectoryRowIconButton
                           label={zh('工具', 'Tools')}

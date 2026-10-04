@@ -52,7 +52,10 @@ func (t *negativeCacheTransport) RoundTrip(req *http.Request) (*http.Response, e
 	if req.Method != "" && req.Method != http.MethodGet && req.Method != http.MethodHead {
 		return t.base.RoundTrip(req)
 	}
-	if cached, ok := negativeURLCache.Load(url); ok {
+	// A forced scrape re-checks URLs that previously answered 403/404 instead of
+	// trusting the cached negative status. Fresh negative responses are still
+	// stored below so normal lookups keep benefiting from the cache.
+	if cached, ok := negativeURLCache.Load(url); ok && !IsForceScrape(req.Context()) {
 		entry := cached.(negativeURLCacheEntry)
 		if time.Now().Before(entry.expiresAt) {
 			if entry.statusCode == http.StatusNotFound || entry.statusCode == http.StatusForbidden {

@@ -182,6 +182,9 @@ func updateDirectory(c *gin.Context) {
 	c.JSON(http.StatusOK, dir)
 }
 
+// scanDirectory handles POST /directories/:id/scan. It accepts an optional
+// "force" query parameter: when truthy, this scan ignores the seven-day
+// negative caches and re-requests JAV codes that previously failed.
 func scanDirectory(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
@@ -203,7 +206,7 @@ func scanDirectory(c *gin.Context) {
 		respondLocalizedError(c, http.StatusConflict, "目录正在执行其他任务，请稍后重试", "The directory is busy; please try again later")
 		return
 	}
-	if err := service.StartManualDirectoryScan(*dir); err != nil {
+	if err := service.StartManualDirectoryScan(*dir, parseDirectoryScanForce(c.Query("force"))); err != nil {
 		if errors.Is(err, service.ErrDirectoryScanInProgress) {
 			respondLocalizedError(c, http.StatusConflict, "目录正在执行其他任务，请稍后重试", "The directory is busy; please try again later")
 			return
@@ -213,6 +216,17 @@ func scanDirectory(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusAccepted, gin.H{"work_status": service.DirectoryWorkScanning})
+}
+
+// parseDirectoryScanForce reports whether a manual scan request asked to ignore
+// cached scrape misses. Only explicit truthy values enable it.
+func parseDirectoryScanForce(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "force":
+		return true
+	default:
+		return false
+	}
 }
 
 func processDirectory(c *gin.Context) {

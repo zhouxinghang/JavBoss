@@ -1,10 +1,13 @@
 package jav
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
 	"time"
+
+	"javboss/internal/util"
 )
 
 const (
@@ -58,7 +61,7 @@ func (c *MetadataClient) currentLookupCache() LookupCache {
 	return c.cache
 }
 
-func lookupCacheGet[T any](c *MetadataClient, key string) (*T, bool, error) {
+func lookupCacheGet[T any](c *MetadataClient, ctx context.Context, key string) (*T, bool, error) {
 	store := c.currentLookupCache()
 	if store == nil {
 		return nil, false, nil
@@ -73,6 +76,11 @@ func lookupCacheGet[T any](c *MetadataClient, key string) (*T, bool, error) {
 	}
 	switch envelope.Status {
 	case lookupCacheStatusMiss:
+		// A forced scrape ignores cached misses so the provider is queried again;
+		// successful hits below stay reusable.
+		if util.IsForceScrape(ctx) {
+			return nil, false, nil
+		}
 		return nil, true, ErrNotFound
 	case lookupCacheStatusHit:
 		if len(envelope.Data) == 0 {

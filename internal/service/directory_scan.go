@@ -168,7 +168,8 @@ func runDirectoryScanWithSession(scanCtx context.Context, directory models.Direc
 
 // StartManualDirectoryScan 先占用目录扫描会话，再异步执行一次手动扫描。
 // 在返回前完成会话占用，可确保并发手动请求得到确定的冲突响应。
-func StartManualDirectoryScan(directory models.Directory) error {
+// force 为 true 时会忽略提供方的七天负缓存，重新请求此前失败的番号。
+func StartManualDirectoryScan(directory models.Directory, force bool) error {
 	if common.DB == nil {
 		return errors.New("nil database")
 	}
@@ -179,6 +180,10 @@ func StartManualDirectoryScan(directory models.Directory) error {
 	scanCtx, finish, err := acquireDirectoryScanSession(context.Background(), directory.ID)
 	if err != nil {
 		return err
+	}
+	if force {
+		scanCtx = util.WithForceScrape(scanCtx)
+		logging.Info("manual directory scan force refresh: id=%d path=%s", directory.ID, directory.Path)
 	}
 	go func() {
 		defer finish()

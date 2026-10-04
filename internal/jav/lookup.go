@@ -25,7 +25,7 @@ func (c *MetadataClient) LookupJavByCode(ctx context.Context, code string, provi
 	}
 	input := code
 	key := lookupCacheKey(provider, "lookup_jav", input)
-	if cached, ok, err := lookupCacheGet[JavInfo](c, key); ok {
+	if cached, ok, err := lookupCacheGet[JavInfo](c, ctx, key); ok {
 		return cached, err
 	}
 	result, err := lookup.LookupJavByCode(ctx, code)
@@ -52,7 +52,7 @@ func (c *MetadataClient) LookupActressByCode(ctx context.Context, code string, p
 	}
 	input := code
 	key := lookupCacheKey(provider, "lookup_actress_code", input)
-	if cached, ok, err := lookupCacheGet[ActressInfo](c, key); ok {
+	if cached, ok, err := lookupCacheGet[ActressInfo](c, ctx, key); ok {
 		return cached, err
 	}
 	result, err := lookup.LookupActressByCode(ctx, code)
@@ -79,7 +79,7 @@ func (c *MetadataClient) LookupActressByJapaneseName(ctx context.Context, name s
 	}
 	input := name
 	key := lookupCacheKey(provider, "lookup_actress_name", input)
-	if cached, ok, err := lookupCacheGet[ActressInfo](c, key); ok {
+	if cached, ok, err := lookupCacheGet[ActressInfo](c, ctx, key); ok {
 		return cached, err
 	}
 	result, err := lookup.LookupActressByName(ctx, name)
@@ -106,7 +106,7 @@ func (c *MetadataClient) LookupActressURLByCodeAndName(ctx context.Context, code
 	}
 	input := strings.ToUpper(strings.TrimSpace(code)) + "|" + strings.Join(strings.Fields(name), " ")
 	key := lookupCacheKey(provider, "lookup_actress_url_code_name", input)
-	if cached, ok, err := lookupCacheGet[string](c, key); ok {
+	if cached, ok, err := lookupCacheGet[string](c, ctx, key); ok {
 		if cached == nil {
 			return "", err
 		}
@@ -136,7 +136,7 @@ func (c *MetadataClient) LookupSeriesURLByCode(ctx context.Context, code string,
 	}
 	input := code
 	key := lookupCacheKey(provider, "lookup_series_url", input)
-	if cached, ok, err := lookupCacheGet[string](c, key); ok {
+	if cached, ok, err := lookupCacheGet[string](c, ctx, key); ok {
 		if cached == nil {
 			return "", err
 		}
@@ -166,7 +166,7 @@ func (c *MetadataClient) LookupStudioURLByCode(ctx context.Context, code string,
 	}
 	input := code
 	key := lookupCacheKey(provider, "lookup_studio_url", input)
-	if cached, ok, err := lookupCacheGet[string](c, key); ok {
+	if cached, ok, err := lookupCacheGet[string](c, ctx, key); ok {
 		if cached == nil {
 			return "", err
 		}

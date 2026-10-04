@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"javboss/internal/util"
 )
 
 func TestLookupJavByCodeUsesCache(t *testing.T) {
@@ -62,6 +64,46 @@ func TestLookupJavByCodeDoesNotCacheTemporaryErrors(t *testing.T) {
 	}
 	if provider.javCalls != 2 {
 		t.Fatalf("unexpected provider calls: got %d want 2", provider.javCalls)
+	}
+}
+
+func TestLookupJavByCodeForceScrapeBypassesCachedNotFound(t *testing.T) {
+	cache := newMemoryLookupCache()
+
+	calls := 0
+	provider := movieLookupFunc(func(_ context.Context, code string) (*JavInfo, error) {
+		calls++
+		if calls == 1 {
+			return nil, ErrNotFound
+		}
+		return &JavInfo{Code: code, Title: "Fresh Title", Provider: ProviderJavBus}, nil
+	})
+	client := NewMetadataClient(map[Provider]any{ProviderJavBus: provider}, cache)
+
+	if _, err := client.LookupJavByCode(context.Background(), "MISS-001", ProviderJavBus); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("first lookup err=%v want ErrNotFound", err)
+	}
+	if _, err := client.LookupJavByCode(context.Background(), "MISS-001", ProviderJavBus); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("cached lookup err=%v want ErrNotFound", err)
+	}
+	if calls != 1 {
+		t.Fatalf("provider calls=%d want=1 (cached miss should not refetch)", calls)
+	}
+
+	info, err := client.LookupJavByCode(util.WithForceScrape(context.Background()), "MISS-001", ProviderJavBus)
+	if err != nil || info == nil || info.Title != "Fresh Title" {
+		t.Fatalf("forced lookup info=%+v err=%v", info, err)
+	}
+	if calls != 2 {
+		t.Fatalf("provider calls=%d want=2 (forced lookup should bypass cached miss)", calls)
+	}
+
+	// Forced scrapes still reuse successful cache hits.
+	if _, err := client.LookupJavByCode(util.WithForceScrape(context.Background()), "MISS-001", ProviderJavBus); err != nil {
+		t.Fatalf("forced cached lookup err=%v", err)
+	}
+	if calls != 2 {
+		t.Fatalf("provider calls=%d want=2 (successful hit should stay cached)", calls)
 	}
 }
 
