@@ -355,3 +355,28 @@ func TestGetJavItemDetail(t *testing.T) {
 		})
 	}
 }
+
+func TestParseJavFilterQueryReadsDirectoryIDs(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = httptest.NewRequest(http.MethodGet, "/jav?directory_ids=2,3,3", nil)
+
+	query, ok := parseJavFilterQuery(context)
+	if !ok {
+		t.Fatalf("parseJavFilterQuery failed")
+	}
+	if !reflect.DeepEqual(query.DirectoryIDs, []int64{2, 3}) {
+		t.Fatalf("directory ids = %#v, want [2 3]", query.DirectoryIDs)
+	}
+
+	emptyContext, _ := gin.CreateTestContext(httptest.NewRecorder())
+	emptyContext.Request = httptest.NewRequest(http.MethodGet, "/jav", nil)
+	emptyQuery, ok := parseJavFilterQuery(emptyContext)
+	if !ok {
+		t.Fatalf("parseJavFilterQuery without directory_ids failed")
+	}
+	if len(emptyQuery.DirectoryIDs) != 0 {
+		t.Fatalf("directory ids = %#v, want empty", emptyQuery.DirectoryIDs)
+	}
+}

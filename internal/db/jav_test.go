@@ -902,6 +902,49 @@ func TestSearchJavFiltersSoloOnlyByIdolCount(t *testing.T) {
 	}
 }
 
+func TestSearchJavFiltersByDirectoryIDs(t *testing.T) {
+	db := openTestDB(t)
+	ctx := context.Background()
+	now := time.Unix(1710000000, 0).UTC()
+
+	dirs := []models.Directory{{Path: "/tmp/dir-a"}, {Path: "/tmp/dir-b"}}
+	if err := db.Create(&dirs).Error; err != nil {
+		t.Fatalf("create directories: %v", err)
+	}
+	dirByName := make(map[string]models.Directory, len(dirs))
+	for _, dir := range dirs {
+		dirByName[dir.Path] = dir
+	}
+
+	javs := []models.Jav{
+		{Code: "DIR-A-001", Title: "In A", FetchedAt: now},
+		{Code: "DIR-B-001", Title: "In B", FetchedAt: now},
+	}
+	if err := db.Create(&javs).Error; err != nil {
+		t.Fatalf("create javs: %v", err)
+	}
+	javByCode := make(map[string]models.Jav, len(javs))
+	for _, item := range javs {
+		javByCode[item.Code] = item
+	}
+	videos := []models.Video{
+		{DirectoryID: dirByName["/tmp/dir-a"].ID, Path: "dir-a-001.mp4", Filename: "dir-a-001.mp4", Fingerprint: "fp-dir-a-001", JavID: int64Ptr(javByCode["DIR-A-001"].ID), ModifiedAt: now},
+		{DirectoryID: dirByName["/tmp/dir-b"].ID, Path: "dir-b-001.mp4", Filename: "dir-b-001.mp4", Fingerprint: "fp-dir-b-001", JavID: int64Ptr(javByCode["DIR-B-001"].ID), ModifiedAt: now},
+	}
+	if err := db.Create(&videos).Error; err != nil {
+		t.Fatalf("create videos: %v", err)
+	}
+	createVideoLocationsForVideos(t, db, videos...)
+
+	items, total, err := SearchJav(ctx, nil, nil, "", "code", 20, 0, nil, []int64{dirByName["/tmp/dir-a"].ID})
+	if err != nil {
+		t.Fatalf("SearchJav by directory: %v", err)
+	}
+	if total != 1 || len(items) != 1 || items[0].Code != "DIR-A-001" {
+		t.Fatalf("directory filtered result = %#v (total %d)", items, total)
+	}
+}
+
 func TestUpdateJavReplacesEditableMetadata(t *testing.T) {
 	db := openTestDB(t)
 	ctx := context.Background()

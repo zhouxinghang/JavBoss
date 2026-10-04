@@ -19,6 +19,11 @@ test('query keys include every effective filter and directory visibility', async
     queries.javQueryKey(state),
     queries.javQueryKey({ ...state, javFavoriteRatingEnabled: true, javFavoriteRatingMin: 3 })
   )
+  assert.notEqual(
+    queries.javQueryKey(state),
+    queries.javQueryKey({ ...state, javDirectoryIds: [7] })
+  )
+  assert.deepEqual(queries.javQuery({ ...state, javDirectoryIds: [7] }).directoryIds, [7])
   assert.equal(queries.javQuery({ ...state, javStudioId: 0 }).studioId, 0)
   assert.equal(queries.idolQuery({ ...state, idolFavoriteGroupId: 1 }).sort, '')
   assert.equal(

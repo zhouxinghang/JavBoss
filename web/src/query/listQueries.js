@@ -28,6 +28,7 @@ export function javQuery(state) {
     search: state.javSearchTerm || '',
     idolIds: state.javIdolIds || [],
     tagIds: state.javTags || [],
+    directoryIds: state.javDirectoryIds || [],
     studioId: state.javStudioId,
     seriesId: state.javSeriesId,
     prefix: state.javPrefix,

@@ -28,6 +28,7 @@ import (
 type javFilterQuery struct {
 	IdolIDs           []int64
 	TagIDs            []int64
+	DirectoryIDs      []int64
 	Search            string
 	Prefix            string
 	StudioID          int64
@@ -40,12 +41,13 @@ type javFilterQuery struct {
 
 func parseJavFilterQuery(c *gin.Context) (javFilterQuery, bool) {
 	query := javFilterQuery{
-		IdolIDs:  parseInt64CSV(c.Query("idol_ids")),
-		TagIDs:   parseInt64CSV(c.Query("tag_ids")),
-		Search:   strings.TrimSpace(c.Query("search")),
-		Prefix:   strings.TrimSpace(c.Query("prefix")),
-		StudioID: -1,
-		SoloOnly: queryBool(c, "solo", false),
+		IdolIDs:      parseInt64CSV(c.Query("idol_ids")),
+		TagIDs:       parseInt64CSV(c.Query("tag_ids")),
+		DirectoryIDs: parseInt64CSV(c.Query("directory_ids")),
+		Search:       strings.TrimSpace(c.Query("search")),
+		Prefix:       strings.TrimSpace(c.Query("prefix")),
+		StudioID:     -1,
+		SoloOnly:     queryBool(c, "solo", false),
 	}
 	if studioParam := strings.TrimSpace(c.Query("studio_id")); studioParam != "" {
 		parsed, err := strconv.ParseInt(studioParam, 10, 64)
@@ -109,7 +111,7 @@ func searchJav(c *gin.Context) {
 		seed = &parsed
 	}
 
-	items, total, err := dbpkg.SearchJavWithPrefixFilters(c.Request.Context(), filterQuery.IdolIDs, filterQuery.TagIDs, filterQuery.Search, filterQuery.Prefix, sort, limit, offset, seed, nil, dbpkg.JavSearchFilters{
+	items, total, err := dbpkg.SearchJavWithPrefixFilters(c.Request.Context(), filterQuery.IdolIDs, filterQuery.TagIDs, filterQuery.Search, filterQuery.Prefix, sort, limit, offset, seed, filterQuery.DirectoryIDs, dbpkg.JavSearchFilters{
 		StudioID:          filterQuery.StudioID,
 		SeriesID:          filterQuery.SeriesID,
 		SoloOnly:          filterQuery.SoloOnly,
@@ -139,7 +141,7 @@ func listJavFilterOptions(c *gin.Context) {
 		filterQuery.TagIDs,
 		filterQuery.Search,
 		filterQuery.Prefix,
-		nil,
+		filterQuery.DirectoryIDs,
 		dbpkg.JavSearchFilters{
 			StudioID:          filterQuery.StudioID,
 			SeriesID:          filterQuery.SeriesID,

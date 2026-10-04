@@ -62,6 +62,7 @@ export async function fetchJavs({
   search = '',
   idolIds = [],
   tagIds = [],
+  directoryIds = [],
   studioId = null,
   seriesId = null,
   prefix = '',
@@ -80,6 +81,7 @@ export async function fetchJavs({
   if (search) params.set('search', search)
   if (idolIds.length) params.set('idol_ids', idolIds.join(','))
   if (tagIds.length) params.set('tag_ids', tagIds.join(','))
+  if (directoryIds.length) params.set('directory_ids', directoryIds.join(','))
   if (studioId !== null && studioId !== undefined) params.set('studio_id', String(studioId))
   if (seriesId) params.set('series_id', String(seriesId))
   if (prefix) params.set('prefix', prefix)
@@ -102,6 +104,7 @@ export async function fetchJavFilterOptions({
   search = '',
   idolIds = [],
   tagIds = [],
+  directoryIds = [],
   studioId = null,
   seriesId = null,
   prefix = '',
@@ -122,6 +125,7 @@ export async function fetchJavFilterOptions({
   if (search) params.set('search', search)
   if (idolIds.length) params.set('idol_ids', idolIds.join(','))
   if (tagIds.length) params.set('tag_ids', tagIds.join(','))
+  if (directoryIds.length) params.set('directory_ids', directoryIds.join(','))
   if (studioId !== null && studioId !== undefined) params.set('studio_id', String(studioId))
   if (seriesId) params.set('series_id', String(seriesId))
   if (prefix) params.set('prefix', prefix)

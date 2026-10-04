@@ -10,6 +10,7 @@ import { zh } from '@/utils/i18n'
 import { getErrorMessage } from '@/utils/errors'
 import { getIdolDisplayName } from '@/utils/javIdol'
 import { withJavTagDisplayName } from '@/utils/javTag'
+import { getDirectoryDisplayName } from '@/utils/display'
 
 const EMPTY_FILTER_OPTIONS = {
   total: 0,
@@ -90,6 +91,8 @@ export default function JavQueryEditorModal({
   seriesId = null,
   seriesName = '',
   prefix = '',
+  directoryIds = [],
+  directories = [],
   soloOnly = false,
   preferChineseName = false,
   showSimplifiedTags = false,
@@ -124,6 +127,7 @@ export default function JavQueryEditorModal({
   const [studioSearch, setStudioSearch] = useState('')
   const [studioPickerOpen, setStudioPickerOpen] = useState(false)
   const [selectedSeries, setSelectedSeries] = useState(null)
+  const [selectedDirectoryIds, setSelectedDirectoryIds] = useState([])
   const [selectedSoloOnly, setSelectedSoloOnly] = useState(false)
   const [selectedFavoriteRatingEnabled, setSelectedFavoriteRatingEnabled] = useState(false)
   const [selectedFavoriteRatingRange, setSelectedFavoriteRatingRange] = useState([0.5, 5])
@@ -170,6 +174,7 @@ export default function JavQueryEditorModal({
         ? { id: parsedSeriesId, name: trimmedSeriesName || `#${parsedSeriesId}` }
         : null
     )
+    setSelectedDirectoryIds(cleanIds(directoryIds))
     setSelectedSoloOnly(Boolean(soloOnly))
     setSelectedFavoriteRatingEnabled(Boolean(favoriteRatingEnabled))
     const nextFavoriteRatingMin = cleanFavoriteRating(favoriteRatingMin, 0.5)
@@ -187,6 +192,7 @@ export default function JavQueryEditorModal({
     favoriteRatingEnabled,
     favoriteRatingMax,
     favoriteRatingMin,
+    directoryIds,
     idolIds,
     idolOptions,
     open,
@@ -210,6 +216,7 @@ export default function JavQueryEditorModal({
         search: keyword.trim(),
         idolIds: selectedIdolIds,
         tagIds: selectedTagIds,
+        directoryIds: selectedDirectoryIds,
         studioId: selectedStudio?.id ?? null,
         seriesId: selectedSeries?.id ?? null,
         prefix: cleanJavPrefix(selectedPrefix?.prefix),
@@ -264,6 +271,7 @@ export default function JavQueryEditorModal({
     keyword,
     open,
     prefixSearch,
+    selectedDirectoryIds,
     selectedIdolIds,
     selectedPrefix?.prefix,
     selectedFavoriteRatingEnabled,
@@ -340,6 +348,16 @@ export default function JavQueryEditorModal({
   const selectedTags = useMemo(
     () => selectedTagIds.map((id) => tagMap.get(id)).filter(Boolean),
     [selectedTagIds, tagMap]
+  )
+
+  const directoryMap = useMemo(
+    () => new Map((directories || []).map((directory) => [Number(directory?.id), directory])),
+    [directories]
+  )
+
+  const selectedDirectories = useMemo(
+    () => selectedDirectoryIds.map((id) => directoryMap.get(id) || { id, path: `#${id}` }),
+    [directoryMap, selectedDirectoryIds]
   )
 
   const filteredTags = useMemo(() => {
@@ -484,6 +502,22 @@ export default function JavQueryEditorModal({
     setSelectedTagIds((prev) => prev.filter((item) => item !== parsed))
   }
 
+  const toggleDirectory = (id) => {
+    const parsed = Number(id)
+    if (!Number.isFinite(parsed) || parsed <= 0) return
+    setSelectedDirectoryIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(parsed)) next.delete(parsed)
+      else next.add(parsed)
+      return Array.from(next)
+    })
+  }
+
+  const removeDirectory = (id) => {
+    const parsed = Number(id)
+    setSelectedDirectoryIds((prev) => prev.filter((item) => item !== parsed))
+  }
+
   const clearAll = () => {
     setKeyword('')
     setSelectedPrefix(null)
@@ -497,6 +531,7 @@ export default function JavQueryEditorModal({
     setStudioSearch('')
     setStudioPickerOpen(false)
     setSelectedSeries(null)
+    setSelectedDirectoryIds([])
     setSelectedSoloOnly(false)
     setSelectedFavoriteRatingEnabled(false)
     setSelectedFavoriteRatingRange([0.5, 5])
@@ -510,6 +545,7 @@ export default function JavQueryEditorModal({
       prefix: cleanJavPrefix(selectedPrefix?.prefix),
       idolIds: selectedIdolIds,
       tagIds: selectedTagIds,
+      directoryIds: selectedDirectoryIds,
       studio: selectedStudio,
       series: selectedSeries,
       soloOnly: selectedSoloOnly,
@@ -632,6 +668,86 @@ export default function JavQueryEditorModal({
               />
             </div>
           ) : null}
+        </section>
+
+        <section className="min-w-0 space-y-2">
+          <div className="text-sm font-semibold leading-5 text-slate-800">
+            {zh('原始目录', 'Original Directory')}
+          </div>
+          <p className="text-xs text-slate-500">
+            {zh(
+              '只显示来源于所选目录的作品；不选则不限目录。',
+              'Only show works whose files come from the selected directories. Leave empty for all directories.'
+            )}
+          </p>
+          {selectedDirectories.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {selectedDirectories.map((directory) => {
+                const name = getDirectoryDisplayName(directory)
+                return (
+                  <span
+                    key={directory.id}
+                    className="inline-flex max-w-full items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700"
+                    title={directory.path}
+                  >
+                    <span className="truncate">{name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeDirectory(directory.id)}
+                      className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-amber-100"
+                      aria-label={zh(`删除目录 ${name}`, `Remove directory ${name}`)}
+                    >
+                      <CloseOutlinedIcon fontSize="inherit" />
+                    </button>
+                  </span>
+                )
+              })}
+            </div>
+          ) : null}
+          {directories.length > 0 ? (
+            <div className="max-h-40 overflow-y-auto rounded border border-slate-200 bg-white p-1">
+              {directories.map((directory) => {
+                const checked = selectedDirectoryIds.includes(Number(directory.id))
+                return (
+                  <button
+                    key={directory.id}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={checked}
+                    onClick={() => toggleDirectory(directory.id)}
+                    className="flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-slate-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      readOnly
+                      tabIndex={-1}
+                      className="pointer-events-none h-4 w-4 shrink-0 rounded border-slate-300 text-blue-600"
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-slate-800" title={directory.path}>
+                      {getDirectoryDisplayName(directory)}
+                    </span>
+                    {directory.enabled === false ? (
+                      <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
+                        {zh('已禁用', 'Disabled')}
+                      </span>
+                    ) : null}
+                    <span
+                      className="min-w-0 max-w-[40%] truncate text-xs text-slate-400"
+                      title={directory.path}
+                    >
+                      {directory.path}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="rounded border border-dashed border-slate-200 px-3 py-2 text-sm text-slate-500">
+              {zh('暂无可选目录', 'No directories available')}
+            </div>
+          )}
         </section>
 
         <div className="grid grid-cols-2 items-start gap-x-5 gap-y-4">

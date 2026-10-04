@@ -116,6 +116,7 @@ export const parseUrlState = (searchString = window.location.search, options = {
     search: (sp.get('search') || '').trim(),
     idolIds: parseIds(sp.get('idol_ids')),
     tagIds: parseIds(sp.get('tag_ids')),
+    directoryIds: parseIds(sp.get('directory_ids')),
     studioId: sp.get('studio_unknown') === '1' ? 0 : parseNonNegativeInt(sp.get('studio_id')),
     studioName: (sp.get('studio_name') || '').trim(),
     seriesId: parsePositiveInt(sp.get('series_id')),
@@ -155,6 +156,9 @@ export const buildUrlFromState = (state, basePath = window.location.pathname) =>
     }
     if (state.jav.tab === 'list' && state.jav.tagIds?.length) {
       sp.set('tag_ids', state.jav.tagIds.join(','))
+    }
+    if (state.jav.tab === 'list' && state.jav.directoryIds?.length) {
+      sp.set('directory_ids', state.jav.directoryIds.join(','))
     }
     if (
       state.jav.tab === 'list' &&
@@ -270,6 +274,7 @@ export const normalizeUrlStateFromStore = (store, tagsByName) => {
       search: (store.javSearchTerm || '').trim(),
       idolIds: store.javIdolIds || [],
       tagIds: store.javTags || [],
+      directoryIds: store.javDirectoryIds || [],
       studioId: store.javStudioId ?? null,
       studioName: (store.javStudioName || '').trim(),
       seriesId: store.javSeriesId || null,

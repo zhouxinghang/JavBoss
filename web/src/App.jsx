@@ -74,12 +74,14 @@ export default function App() {
     javSeriesId,
     javSeriesName,
     javPrefix,
+    javDirectoryIds,
     javSoloOnly,
     javFavoriteRatingEnabled,
     javFavoriteRatingMin,
     javFavoriteRatingMax,
     javFavoriteGroupId,
     javItems,
+    directories,
     loadJavTags,
     idolProfileFilters,
     favoriteGroupsByType,
@@ -104,12 +106,14 @@ export default function App() {
       javSeriesId: s.javSeriesId,
       javSeriesName: s.javSeriesName,
       javPrefix: s.javPrefix,
+      javDirectoryIds: s.javDirectoryIds,
       javSoloOnly: s.javSoloOnly,
       javFavoriteRatingEnabled: s.javFavoriteRatingEnabled,
       javFavoriteRatingMin: s.javFavoriteRatingMin,
       javFavoriteRatingMax: s.javFavoriteRatingMax,
       javFavoriteGroupId: s.javFavoriteGroupId,
       javItems: s.javItems,
+      directories: s.directories,
       loadJavTags: s.loadJavTags,
       idolProfileFilters: s.idolProfileFilters,
       favoriteGroupsByType: s.favoriteGroupsByType,
@@ -489,6 +493,7 @@ export default function App() {
             studioName: item?.include_studio_filter ? item?.studio_name || '' : '',
             seriesId: null,
             prefix: item?.prefix || '',
+            directoryIds: [],
             soloOnly: false,
             favoriteRatingEnabled: false,
             favoriteGroupId: null,
@@ -540,6 +545,7 @@ export default function App() {
             seriesId: null,
             seriesName: '',
             prefix: '',
+            directoryIds: [],
             soloOnly: false,
             favoriteRatingEnabled: false,
             idolProfileFilters: createDefaultIdolProfileFilters(),
@@ -731,6 +737,8 @@ export default function App() {
         seriesId={javSeriesId}
         seriesName={javSeriesName}
         prefix={javPrefix}
+        directoryIds={javDirectoryIds}
+        directories={directories}
         soloOnly={javSoloOnly}
         preferChineseName={configFlag(config?.jav_idol_prefer_chinese_name)}
         showSimplifiedTags={configFlag(config?.jav_tag_show_simplified)}

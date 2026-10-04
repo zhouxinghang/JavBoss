@@ -12,6 +12,7 @@ import {
 } from '@/constants/jav'
 import { zh } from '@/utils/i18n'
 import { getIdolDisplayName } from '@/utils/javIdol'
+import { getDirectoryDisplayName } from '@/utils/display'
 
 export default function useLibraryFilters({
   saveScrollBeforeUrlStateChange,
@@ -45,11 +46,13 @@ export default function useLibraryFilters({
     javSeriesId,
     javSeriesName,
     javPrefix,
+    javDirectoryIds,
     javSoloOnly,
     javFavoriteRatingEnabled,
     javFavoriteRatingMin,
     javFavoriteRatingMax,
     javRandomMode,
+    directories,
   } = useStore(
     useShallow((state) => ({
       setSearchTerm: state.setSearchTerm,
@@ -71,11 +74,13 @@ export default function useLibraryFilters({
       javSeriesId: state.javSeriesId,
       javSeriesName: state.javSeriesName,
       javPrefix: state.javPrefix,
+      javDirectoryIds: state.javDirectoryIds,
       javSoloOnly: state.javSoloOnly,
       javFavoriteRatingEnabled: state.javFavoriteRatingEnabled,
       javFavoriteRatingMin: state.javFavoriteRatingMin,
       javFavoriteRatingMax: state.javFavoriteRatingMax,
       javRandomMode: state.javRandomMode,
+      directories: state.directories,
     }))
   )
   const [javResolvedIdols, setJavResolvedIdols] = useState({})
@@ -114,6 +119,7 @@ export default function useLibraryFilters({
         javSeriesId: null,
         javSeriesName: '',
         javPrefix: '',
+        javDirectoryIds: [],
         javSoloOnly: false,
         javFavoriteRatingEnabled: false,
         javFavoriteRatingMin: 0.5,
@@ -149,6 +155,11 @@ export default function useLibraryFilters({
   const javTagNameMap = useMemo(
     () => new Map(displayJavTagOptions.map((tag) => [tag.id, tag.name])),
     [displayJavTagOptions]
+  )
+
+  const directoryNameMap = useMemo(
+    () => new Map((directories || []).map((directory) => [Number(directory?.id), directory])),
+    [directories]
   )
 
   const javIdolOptionMap = useMemo(() => {
@@ -393,6 +404,18 @@ export default function useLibraryFilters({
         onRemove: () => updateJavFilters({ javSeriesId: null, javSeriesName: '' }),
       })
     }
+    javDirectoryIds.forEach((id) => {
+      const directory = directoryNameMap.get(Number(id))
+      const name = getDirectoryDisplayName(directory) || `#${id}`
+      items.push({
+        key: `jav-directory-${id}`,
+        label: zh(`目录: ${name}`, `Directory: ${name}`),
+        onRemove: () =>
+          updateJavFilters({
+            javDirectoryIds: javDirectoryIds.filter((item) => Number(item) !== Number(id)),
+          }),
+      })
+    })
     if (javPrefix) {
       items.push({
         key: 'jav-prefix',
@@ -433,6 +456,7 @@ export default function useLibraryFilters({
     javFavoriteRatingEnabled,
     javFavoriteRatingMax,
     javFavoriteRatingMin,
+    javDirectoryIds,
     javIdolIds,
     javIdolOptionMap,
     javPrefix,
@@ -444,6 +468,7 @@ export default function useLibraryFilters({
     javStudioId,
     javStudioName,
     javTab,
+    directoryNameMap,
     javTagNameMap,
     javTags,
     randomMode,
@@ -477,6 +502,7 @@ export default function useLibraryFilters({
         javSeriesId: null,
         javSeriesName: '',
         javPrefix: '',
+        javDirectoryIds: [],
         javSoloOnly: false,
         javFavoriteRatingEnabled: false,
         javFavoriteRatingMin: 0.5,
@@ -540,6 +566,13 @@ export default function useLibraryFilters({
             .filter((id) => Number.isFinite(id) && id > 0)
         )
       )
+      const nextDirectoryIds = Array.from(
+        new Set(
+          (query?.directoryIds || [])
+            .map((id) => Number(id))
+            .filter((id) => Number.isFinite(id) && id > 0)
+        )
+      )
       const nextStudioId = Number(query?.studio?.id)
       const hasStudio = Number.isFinite(nextStudioId) && nextStudioId >= 0
       const nextStudioName = hasStudio ? String(query?.studio?.name || '').trim() : ''
@@ -576,6 +609,7 @@ export default function useLibraryFilters({
         javSeriesId: hasSeries ? nextSeriesId : null,
         javSeriesName: nextSeriesName,
         javPrefix: nextPrefix,
+        javDirectoryIds: nextDirectoryIds,
         javSoloOnly: Boolean(query?.soloOnly),
         javFavoriteRatingEnabled: nextFavoriteRatingEnabled,
         javFavoriteRatingMin: nextFavoriteRatingMin,

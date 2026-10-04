@@ -15,6 +15,15 @@ export const getVideoDisplayName = (video) => {
   return video.id != null ? zh(`视频 #${video.id}`, `Video #${video.id}`) : ''
 }
 
+export const getDirectoryDisplayName = (directory) => {
+  const path = String(directory?.path || '').trim()
+  if (path) {
+    const segments = path.split(/[\\/]+/).filter(Boolean)
+    return segments.length > 0 ? segments[segments.length - 1] : path
+  }
+  return directory?.id != null ? zh(`目录 #${directory.id}`, `Directory #${directory.id}`) : ''
+}
+
 export const buildVideoFullPath = (video) => {
   if (!video) return ''
   const rawPath = String(video.path || '').trim()
