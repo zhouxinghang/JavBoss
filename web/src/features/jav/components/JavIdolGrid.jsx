@@ -12,6 +12,7 @@ import {
   updateJavIdol,
 } from '@/features/jav/api'
 import AppModal from '@/shared/ui/AppModal'
+import VirtualizedGrid from '@/shared/ui/VirtualizedGrid'
 import JavIdolAvatarModal from '@/features/jav/components/JavIdolAvatarModal'
 import { getIdolDisplayNames } from '@/utils/javIdol'
 import { openJavDBWithAssist } from '@/utils/javdb'
@@ -64,13 +65,15 @@ export default function JavIdolGrid({
 
   return (
     <>
-      <div
-        className="grid gap-3 bg-white"
-        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(11rem, 1fr))' }}
-      >
-        {displayItems.map((item) => (
+      <VirtualizedGrid
+        items={displayItems}
+        className="bg-white"
+        minColumnWidth={176}
+        gap={12}
+        estimateRowHeight={320}
+        getItemKey={(item) => item.id || item.name}
+        renderItem={(item) => (
           <IdolCard
-            key={item.id || item.name}
             item={item}
             onSelectIdol={onSelectIdol}
             onOpenFavorites={onOpenFavorites}
@@ -78,8 +81,8 @@ export default function JavIdolGrid({
             href={buildIdolUrl?.(item)}
             preferChineseName={preferChineseName}
           />
-        ))}
-      </div>
+        )}
+      />
       <JavIdolEditModal
         key={`edit-${editItem?.id || 'closed'}`}
         open={Boolean(editItem)}

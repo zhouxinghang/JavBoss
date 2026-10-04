@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { addJavTagToJavs, fetchJavs } from '@/features/jav/api'
 import { addJavsToFavoriteGroups } from '@/features/favorites/api'
 import { resolveJavSort } from '@/constants/jav'
@@ -76,7 +76,7 @@ export default function useJavSelection({
     })
   }
 
-  const toggle = (item) => {
+  const toggle = useCallback((item) => {
     const id = Number(item?.id)
     if (actionRef.current || !Number.isFinite(id) || id <= 0) return
     setSelection((current) => {
@@ -85,7 +85,7 @@ export default function useJavSelection({
       else next.set(id, item)
       return next
     })
-  }
+  }, [])
 
   const selectItems = (list) => {
     const entries = new Map(

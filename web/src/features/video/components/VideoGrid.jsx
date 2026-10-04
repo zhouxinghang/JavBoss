@@ -1,4 +1,5 @@
 import VideoCard from '@/features/video/components/VideoCard'
+import VirtualizedGrid from '@/shared/ui/VirtualizedGrid'
 import { videoSelectionKey } from '@/store'
 
 export default function VideoGrid({
@@ -19,22 +20,23 @@ export default function VideoGrid({
   onTagClick,
 }) {
   return (
-    <div
-      className="grid gap-8"
-      style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(15rem, 1fr))' }}
-    >
-      {videos.map((v) => (
+    <VirtualizedGrid
+      items={videos}
+      minColumnWidth={240}
+      gap={32}
+      estimateRowHeight={300}
+      getItemKey={(video) => videoSelectionKey(video)}
+      renderItem={(v) => (
         <VideoCard
-          key={videoSelectionKey(v)}
           video={v}
           checked={selectedIds.has(videoSelectionKey(v))}
-          onToggle={() => onToggleSelect(v)}
+          onToggleSelect={onToggleSelect}
           showSelection={showSelection}
           onPlay={onPlay}
           onOpenFile={onOpenFile}
           onRevealFile={onRevealFile}
           openFileLabel={openFileLabel}
-          onOpenTagPicker={() => onOpenTagPicker(v.id)}
+          onOpenTagPicker={onOpenTagPicker}
           showTagEditor={showTagEditor}
           onOpenScreenshots={onOpenScreenshots}
           onOpenScrapeSettings={onOpenScrapeSettings}
@@ -42,7 +44,7 @@ export default function VideoGrid({
           onDeleteVideo={onDeleteVideo}
           onTagClick={onTagClick}
         />
-      ))}
-    </div>
+      )}
+    />
   )
 }

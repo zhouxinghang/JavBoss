@@ -13,7 +13,13 @@ import { isUserJavTag } from '@/constants/jav'
 
 export function JavCoverImage({ src, alt }) {
   return (
-    <img src={src} alt={alt} className="h-full w-full object-contain object-top" loading="lazy" />
+    <img
+      src={src}
+      alt={alt}
+      className="h-full w-full object-contain object-top"
+      loading="lazy"
+      decoding="async"
+    />
   )
 }
 

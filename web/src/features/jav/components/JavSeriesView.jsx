@@ -4,6 +4,7 @@ import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined'
 
 import Pagination from '@/shared/ui/Pagination'
+import VirtualizedGrid from '@/shared/ui/VirtualizedGrid'
 import WaterfallLoader from '@/shared/ui/WaterfallLoader'
 import useJavFavoriteCount from '@/features/favorites/hooks/useJavFavoriteCount'
 import { zh } from '@/utils/i18n'
@@ -87,21 +88,23 @@ function JavSeriesGrid({ items, onSelectSeries, onSelectStudio, onOpenFavorites,
   }
 
   return (
-    <div
-      className="grid gap-4 bg-white"
-      style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(16rem, 1fr))' }}
-    >
-      {items.map((item) => (
+    <VirtualizedGrid
+      items={items}
+      className="bg-white"
+      minColumnWidth={256}
+      gap={16}
+      estimateRowHeight={300}
+      getItemKey={(item) => item.id || item.name}
+      renderItem={(item) => (
         <SeriesCard
-          key={item.id || item.name}
           item={item}
           href={buildSeriesUrl?.(item)}
           onSelectSeries={onSelectSeries}
           onSelectStudio={onSelectStudio}
           onOpenFavorites={onOpenFavorites}
         />
-      ))}
-    </div>
+      )}
+    />
   )
 }
 

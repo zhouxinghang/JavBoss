@@ -14,6 +14,7 @@ import {
 } from '@/features/jav/api'
 import AppModal from '@/shared/ui/AppModal'
 import Pagination from '@/shared/ui/Pagination'
+import VirtualizedGrid from '@/shared/ui/VirtualizedGrid'
 import { SeriesCard } from '@/features/jav/components/JavSeriesView'
 import WaterfallLoader from '@/shared/ui/WaterfallLoader'
 import { useStore } from '@/store'
@@ -130,13 +131,15 @@ function JavStudioGrid({
 
   return (
     <>
-      <div
-        className="grid gap-4 bg-white"
-        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(16rem, 1fr))' }}
-      >
-        {displayItems.map((item) => (
+      <VirtualizedGrid
+        items={displayItems}
+        className="bg-white"
+        minColumnWidth={256}
+        gap={16}
+        estimateRowHeight={340}
+        getItemKey={(item) => item.id || item.name}
+        renderItem={(item) => (
           <StudioCard
-            key={item.id || item.name}
             item={item}
             href={buildStudioUrl?.(item)}
             onSelectStudio={onSelectStudio}
@@ -147,8 +150,8 @@ function JavStudioGrid({
             onOpenEditor={setEditItem}
             buildSeriesUrl={buildSeriesUrl}
           />
-        ))}
-      </div>
+        )}
+      />
       <JavStudioEditModal
         key={`studio-edit-${editItem?.id || 'closed'}`}
         open={Boolean(editItem)}

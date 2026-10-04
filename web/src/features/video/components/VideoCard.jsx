@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { IconButton, Popover, Tooltip } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutline'
@@ -19,10 +19,10 @@ import { zh } from '@/utils/i18n'
 import PhotoLibraryOutlinedIcon from '@mui/icons-material/PhotoLibraryOutlined'
 import { MovieEdit } from '@mui/icons-material'
 
-export default function VideoCard({
+function VideoCard({
   video,
   checked,
-  onToggle,
+  onToggleSelect,
   showSelection = true,
   onPlay,
   onOpenFile,
@@ -132,7 +132,7 @@ export default function VideoCard({
             id={inputId}
             type="checkbox"
             checked={checked}
-            onChange={onToggle}
+            onChange={() => onToggleSelect?.(video)}
             className="video-select-check"
             onClick={(e) => e.stopPropagation()}
             onPointerUp={(e) => {
@@ -146,8 +146,11 @@ export default function VideoCard({
         <img
           src={thumbnailSrc}
           alt={displayName}
+          width={480}
+          height={270}
           className="h-full w-full object-cover"
           loading="lazy"
+          decoding="async"
           onLoad={(e) => {
             e.currentTarget.style.display = ''
           }}
@@ -224,7 +227,7 @@ export default function VideoCard({
                 size="small"
                 onClick={(e) => {
                   e.stopPropagation()
-                  onOpenTagPicker()
+                  onOpenTagPicker?.(video.id)
                 }}
                 aria-label={zh('修改标签', 'Edit tags')}
                 className="h-6 w-6"
@@ -342,3 +345,18 @@ export default function VideoCard({
     </div>
   )
 }
+
+function arePropsEqual(prev, next) {
+  // Only these props affect the rendered card. Handler identities churn whenever
+  // App re-renders (it subscribes to the list), so ignoring them keeps appending
+  // a page from re-rendering every existing card.
+  return (
+    prev.video === next.video &&
+    prev.checked === next.checked &&
+    prev.showSelection === next.showSelection &&
+    prev.showTagEditor === next.showTagEditor &&
+    prev.openFileLabel === next.openFileLabel
+  )
+}
+
+export default memo(VideoCard, arePropsEqual)

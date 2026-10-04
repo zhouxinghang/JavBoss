@@ -3,6 +3,7 @@ import useJavPreviews from '@/features/jav/hooks/useJavPreviews'
 import { useState, useMemo } from 'react'
 import { zh } from '@/utils/i18n'
 import JavCard from '@/features/jav/components/JavCard'
+import VirtualizedGrid from '@/shared/ui/VirtualizedGrid'
 import { CoverPreviewModal } from '@/features/jav/components/CoverPreviewModal'
 import { JavVideoManagerModal } from '@/features/jav/components/JavVideoManagerModal'
 
@@ -71,12 +72,6 @@ export default function JavGrid({
   const hasItems = Array.isArray(displayItems) && displayItems.length > 0
   const columnCount = Number.isFinite(Number(columns)) ? Math.floor(Number(columns)) : 0
   const fixedColumnCount = columnCount > 0 ? Math.min(columnCount, 12) : 0
-  const gridClassName = 'grid gap-4'
-  const gridStyle = fixedColumnCount
-    ? { gridTemplateColumns: `repeat(${fixedColumnCount}, minmax(0, 1fr))` }
-    : compact
-      ? { gridTemplateColumns: 'repeat(auto-fill, minmax(11rem, 1fr))' }
-      : { gridTemplateColumns: 'repeat(auto-fill, minmax(21rem, 1fr))' }
 
   if (!hasItems) {
     return (
@@ -88,10 +83,15 @@ export default function JavGrid({
 
   return (
     <>
-      <div className={gridClassName} style={gridStyle}>
-        {displayItems.map((item) => (
+      <VirtualizedGrid
+        items={displayItems}
+        fixedColumns={fixedColumnCount}
+        minColumnWidth={compact ? 176 : 336}
+        gap={16}
+        estimateRowHeight={compact ? 320 : 380}
+        getItemKey={(item) => item.id || item.code}
+        renderItem={(item) => (
           <JavCard
-            key={item.id || item.code}
             item={item}
             checked={selectedIds?.has(Number(item.id)) || false}
             onToggleSelect={onToggleSelect}
@@ -138,8 +138,8 @@ export default function JavGrid({
             hideActions={hideActions}
             showFullFavoriteRating={showFullFavoriteRating}
           />
-        ))}
-      </div>
+        )}
+      />
       {coverPreview ? (
         <CoverPreviewModal preview={coverPreview} onClose={() => setCoverPreview(null)} />
       ) : null}

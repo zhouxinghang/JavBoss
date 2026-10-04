@@ -1,6 +1,6 @@
 import SwapVertIcon from '@mui/icons-material/SwapVert'
 import { Popover } from '@mui/material'
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import BulkActionsMenu from '@/features/playback/components/BulkActionsMenu'
 import Pagination from '@/shared/ui/Pagination'
 import VideoGrid from '@/features/video/components/VideoGrid'
@@ -89,6 +89,13 @@ export default function VideoView({
   const closeSortMenu = () => {
     setSortAnchorEl(null)
   }
+
+  const handleOpenFile = useCallback((video) => openAlternatePlayer?.(video), [openAlternatePlayer])
+  const handleRevealFile = useCallback((video) => revealFile?.(video), [revealFile])
+  const handleOpenTagPicker = useCallback(
+    (videoId) => setTagPickerFor?.(videoId),
+    [setTagPickerFor]
+  )
 
   const bulkActionMenu = (
     <BulkActionsMenu
@@ -216,11 +223,11 @@ export default function VideoView({
           videos={videos}
           selectedIds={selectedVideoIds}
           onToggleSelect={toggleSelectVideo}
-          onPlay={(video) => openPlayer(video)}
-          onOpenFile={(video) => openAlternatePlayer?.(video)}
-          onRevealFile={(video) => revealFile?.(video)}
+          onPlay={openPlayer}
+          onOpenFile={handleOpenFile}
+          onRevealFile={handleRevealFile}
           openFileLabel={alternatePlayerLabel}
-          onOpenTagPicker={(vid) => setTagPickerFor(vid)}
+          onOpenTagPicker={handleOpenTagPicker}
           onOpenScreenshots={onOpenScreenshots}
           onOpenScrapeSettings={onOpenScrapeSettings}
           onRenameVideo={onRenameVideo}

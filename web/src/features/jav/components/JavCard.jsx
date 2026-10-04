@@ -13,7 +13,7 @@ import StarBorderRoundedIcon from '@mui/icons-material/StarBorderRounded'
 import SearchIcon from '@mui/icons-material/Search'
 import PhotoLibraryOutlinedIcon from '@mui/icons-material/PhotoLibraryOutlined'
 import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded'
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { ReleaseIcon, DurationIcon } from '@/features/jav/components/JavMetadataIcons'
 import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined'
 import CollectionsBookmarkOutlinedIcon from '@mui/icons-material/CollectionsBookmarkOutlined'
@@ -43,6 +43,7 @@ function CompactCoverImage({ src, alt, cropLeft }) {
       className="absolute inset-0 h-full w-full select-none object-cover"
       style={{ objectPosition: `${resolveJavCoverObjectPosition(cropLeft, imageAspect)}% top` }}
       loading="lazy"
+      decoding="async"
       draggable={false}
       onLoad={(event) => {
         const img = event.currentTarget
@@ -54,7 +55,7 @@ function CompactCoverImage({ src, alt, cropLeft }) {
   )
 }
 
-export default function JavCard(props) {
+function JavCard(props) {
   const model = useJavItemActions(props)
   const compact = Boolean(props.compact)
   const coverCropLeft = normalizeJavCoverCropLeft(
@@ -345,6 +346,7 @@ export default function JavCard(props) {
                       alt={site.name}
                       className={`${site.key === 'javmenu' ? 'h-5 w-5' : 'h-4 w-4'} ${site.loading ? 'animate-pulse' : ''}`}
                       loading="lazy"
+                      decoding="async"
                     />
                   </a>
                 </Tooltip>
@@ -666,3 +668,29 @@ export default function JavCard(props) {
     </>
   )
 }
+
+function arePropsEqual(prev, next) {
+  // Event handlers are recreated on App re-renders (App subscribes to the JAV
+  // list), so compare only the data/config props that change what is drawn.
+  // `buildJavUrl` stays referentially stable across appends and is compared so
+  // rendered filter links keep the current query context.
+  return (
+    prev.item === next.item &&
+    prev.checked === next.checked &&
+    prev.selectionDisabled === next.selectionDisabled &&
+    prev.compact === next.compact &&
+    prev.titleMaxRows === next.titleMaxRows &&
+    prev.idolTagMaxRows === next.idolTagMaxRows &&
+    prev.tagMaxRows === next.tagMaxRows &&
+    prev.preferChineseName === next.preferChineseName &&
+    prev.hideSeries === next.hideSeries &&
+    prev.hideIdols === next.hideIdols &&
+    prev.hideTags === next.hideTags &&
+    prev.hideActions === next.hideActions &&
+    prev.showFullFavoriteRating === next.showFullFavoriteRating &&
+    prev.openFileLabel === next.openFileLabel &&
+    prev.buildJavUrl === next.buildJavUrl
+  )
+}
+
+export default memo(JavCard, arePropsEqual)

@@ -1,6 +1,6 @@
 import { useStore } from '@/store'
 import { configFlag } from '@/utils/config'
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { withJavTagDisplayName } from '@/utils/javTag'
 
 export default function useJavPresentation(items) {
@@ -15,14 +15,25 @@ export default function useJavPresentation(items) {
     configFlag(state.config?.jav_favorite_rating_show_full, false)
   )
   const showSimplifiedTags = useStore((state) => configFlag(state.config?.jav_tag_show_simplified))
+  // Keep simplified item objects referentially stable so memoized cards skip
+  // re-rendering when another page of items is appended to the list.
+  const simplifiedCacheRef = useRef(new WeakMap())
   const displayItems = useMemo(() => {
     if (!showSimplifiedTags) return items
-    return (items || []).map((item) => ({
-      ...item,
-      tags: Array.isArray(item?.tags)
-        ? item.tags.map((tag) => withJavTagDisplayName(tag, true))
-        : item?.tags,
-    }))
+    const cache = simplifiedCacheRef.current
+    return (items || []).map((item) => {
+      if (!item || typeof item !== 'object') return item
+      const cached = cache.get(item)
+      if (cached) return cached
+      const next = {
+        ...item,
+        tags: Array.isArray(item?.tags)
+          ? item.tags.map((tag) => withJavTagDisplayName(tag, true))
+          : item?.tags,
+      }
+      cache.set(item, next)
+      return next
+    })
   }, [items, showSimplifiedTags])
   return {
     preferChineseName,
