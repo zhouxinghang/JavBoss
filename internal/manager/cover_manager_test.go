@@ -165,17 +165,46 @@ func TestDownloadCoverAcceptsSmallImages(t *testing.T) {
 			if manager.Exists("FC2-PPV-1234567") {
 				t.Fatal("empty FC2 cover must not count as an existing image")
 			}
-			// The same valid small image must not stop provider fallback for
-			// ordinary codes, whose discovery still requires at least 30 KiB.
-			if err := manager.downloadCover(context.Background(), "ABC-001", server.URL+"/cover."+format); !errors.Is(err, errInvalidCover) {
-				t.Fatalf("non-FC2 small cover error = %v, want errInvalidCover", err)
+			// The same small but valid image must now also be accepted for
+			// ordinary codes, whose discovery used to require at least 30 KiB.
+			if err := manager.downloadCover(context.Background(), "ABC-001", server.URL+"/cover."+format); err != nil {
+				t.Fatalf("non-FC2 small cover error = %v, want nil", err)
 			}
-			for _, suffix := range []string{"", ".tmp"} {
-				if _, err := os.Stat(filepath.Join(manager.coverDir, "abc-001."+format+suffix)); !errors.Is(err, os.ErrNotExist) {
-					t.Fatalf("rejected cover file remains (suffix %q): %v", suffix, err)
-				}
+			if _, ok := FindCoverPath(manager.coverDir, "ABC-001"); !ok {
+				t.Fatal("non-FC2 small cover was not discoverable")
 			}
 		})
+	}
+}
+
+// TestDownloadCoverAcceptsSmallNonFC2Image guards the regression where JavDB
+// serves legitimate 300x300 JPEG covers around 20 KiB that the former 30 KiB
+// size gate rejected even though the download itself succeeded.
+func TestDownloadCoverAcceptsSmallNonFC2Image(t *testing.T) {
+	var data bytes.Buffer
+	if err := jpeg.Encode(&data, image.NewRGBA(image.Rect(0, 0, 300, 300)), nil); err != nil {
+		t.Fatal(err)
+	}
+	if int64(data.Len()) >= minValidCoverSizeBytes {
+		t.Fatalf("fixture size %d must be below the legacy %d byte gate", data.Len(), minValidCoverSizeBytes)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/jpeg")
+		_, _ = w.Write(data.Bytes())
+	}))
+	defer server.Close()
+
+	manager := &CoverManager{coverDir: t.TempDir()}
+	if err := manager.downloadCover(context.Background(), "MZ-001", server.URL+"/covers/mz/MZvQA.jpg"); err != nil {
+		t.Fatalf("downloadCover: %v", err)
+	}
+	path, ok := FindCoverPath(manager.coverDir, "MZ-001")
+	if !ok {
+		t.Fatal("small cover was not discoverable")
+	}
+	if filepath.Base(path) != "mz-001.jpg" {
+		t.Fatalf("cover path = %q, want mz-001.jpg", filepath.Base(path))
 	}
 }
 

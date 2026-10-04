@@ -33,7 +33,14 @@ type CoverManager struct {
 	scheduled map[string]struct{}
 }
 
+// minValidCoverSizeBytes is the fallback size gate for cover payloads whose
+// format cannot be decoded by the standard library (for example webp).
+// Decodable images are validated by dimensions instead; a hard 30 KiB gate used
+// to reject legitimate covers such as JavDB's 300x300 JPEGs (~22 KiB).
 const minValidCoverSizeBytes int64 = 30 * 1024
+
+// coverImageMinEdge is the smallest accepted width and height for a cover image.
+const coverImageMinEdge = 150
 
 var errInvalidCover = errors.New("invalid cover")
 var errCoverNotFound = errors.New("cover not found")
@@ -245,7 +252,7 @@ func (m *CoverManager) downloadCover(ctx context.Context, code, coverURL string)
 	if err != nil {
 		return fmt.Errorf("create temp: %w", err)
 	}
-	body, encoded := javdb.DecodeImageBody(resp.Body)
+	body, _ := javdb.DecodeImageBody(resp.Body)
 	written, err := io.Copy(out, body)
 	if err != nil {
 		out.Close()
@@ -256,13 +263,9 @@ func (m *CoverManager) downloadCover(ctx context.Context, code, coverURL string)
 		_ = os.Remove(tmp)
 		return fmt.Errorf("close cover: %w", err)
 	}
-	if written < minValidCoverSizeBytes && !strings.HasPrefix(code, "fc2-ppv-") {
+	if !validCoverImageFile(tmp) {
 		_ = os.Remove(tmp)
-		return fmt.Errorf("%w: size %d below minimum %d", errInvalidCover, written, minValidCoverSizeBytes)
-	}
-	if (encoded || written < minValidCoverSizeBytes) && !isDecodableCoverFile(tmp) {
-		_ = os.Remove(tmp)
-		return fmt.Errorf("%w: file (%d bytes) is not a decodable image", errInvalidCover, written)
+		return fmt.Errorf("%w: file (%d bytes) is not a usable image", errInvalidCover, written)
 	}
 	removeCoverFiles(m.coverDir, code)
 	if err := os.Rename(tmp, target); err != nil {
@@ -344,7 +347,39 @@ func isValidCoverFile(path string) bool {
 	if strings.HasPrefix(strings.ToLower(filepath.Base(path)), "fc2-ppv-") {
 		return info.Size() > 0
 	}
+	return validCoverImageFile(path)
+}
+
+// validCoverImageFile reports whether path holds a usable cover image.
+//
+// Decodable images are accepted when their dimensions are large enough; this
+// replaces the former "at least 30 KiB" requirement that rejected legitimate
+// small covers such as JavDB's 300x300 JPEGs. Formats the standard library
+// cannot decode (for example webp) still fall back to the size gate.
+func validCoverImageFile(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	if cfg, ok := decodeCoverImageConfig(path); ok {
+		return cfg.Width >= coverImageMinEdge && cfg.Height >= coverImageMinEdge
+	}
 	return info.Size() >= minValidCoverSizeBytes
+}
+
+// decodeCoverImageConfig reads only the image header so validation stays cheap
+// even while covers are served.
+func decodeCoverImageConfig(path string) (image.Config, bool) {
+	f, err := os.Open(path)
+	if err != nil {
+		return image.Config{}, false
+	}
+	defer f.Close()
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil || cfg.Width <= 0 || cfg.Height <= 0 {
+		return image.Config{}, false
+	}
+	return cfg, true
 }
 
 func isDecodableCoverFile(path string) bool {
