@@ -1471,6 +1471,15 @@ func updateVideoCover(c *gin.Context) {
 		return
 	}
 
+	// Re-store the screenshot as the video's own cover file so the cover no longer
+	// depends on the source screenshot. The database schema is unchanged.
+	dataDir := filepath.Dir(common.AppConfig.DatabasePath)
+	if err := manager.StoreVideoCoverFromFile(dataDir, id, screenshotPath); err != nil {
+		logging.Error("store video cover error: %v", err)
+		respondLocalizedError(c, http.StatusInternalServerError, "保存视频封面失败", "Failed to save video cover")
+		return
+	}
+
 	updated, err := dbpkg.UpdateVideoCoverScreenshotName(c.Request.Context(), id, name)
 	if err != nil {
 		logging.Error("update video cover error: %v", err)
@@ -1489,6 +1498,9 @@ func resetVideoCover(c *gin.Context) {
 	if err != nil || id <= 0 {
 		respondLocalizedError(c, http.StatusBadRequest, "视频 ID 无效", "Invalid video ID")
 		return
+	}
+	if common.AppConfig != nil {
+		manager.RemoveVideoCover(filepath.Dir(common.AppConfig.DatabasePath), id)
 	}
 	updated, err := dbpkg.UpdateVideoCoverScreenshotName(c.Request.Context(), id, "")
 	if err != nil {
@@ -1730,10 +1742,16 @@ func deleteVideoScreenshot(c *gin.Context) {
 		return
 	}
 
-	if err := dbpkg.ClearVideoCoverScreenshotNameIfMatch(c.Request.Context(), id, name); err != nil {
-		logging.Error("clear deleted video cover screenshot error: %v", err)
-		respondLocalizedError(c, http.StatusInternalServerError, "更新视频封面状态失败", "Failed to update video cover state")
-		return
+	// A re-stored cover no longer depends on the screenshot, so keep it. Only fall
+	// back to the default thumbnail when the deleted screenshot was the sole cover
+	// source (covers set before the cover file was introduced).
+	dataDir := filepath.Dir(common.AppConfig.DatabasePath)
+	if _, hasStoredCover := manager.FindVideoCoverPath(dataDir, id); !hasStoredCover {
+		if err := dbpkg.ClearVideoCoverScreenshotNameIfMatch(c.Request.Context(), id, name); err != nil {
+			logging.Error("clear deleted video cover screenshot error: %v", err)
+			respondLocalizedError(c, http.StatusInternalServerError, "更新视频封面状态失败", "Failed to update video cover state")
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -1799,6 +1817,11 @@ func isScreenshotImageName(name string) bool {
 func customVideoCoverPath(dataDir string, video *models.Video) (string, bool) {
 	if video == nil || video.ID <= 0 {
 		return "", false
+	}
+	// Prefer the re-stored cover file; fall back to the referenced screenshot for
+	// covers set before the cover file was introduced.
+	if path, ok := manager.FindVideoCoverPath(dataDir, video.ID); ok {
+		return path, true
 	}
 	name := strings.TrimSpace(video.CoverScreenshotName)
 	if !isScreenshotImageName(name) {

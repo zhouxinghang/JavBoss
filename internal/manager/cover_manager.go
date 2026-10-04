@@ -318,6 +318,55 @@ func DownloadCoverFromURL(ctx context.Context, coverDir, code, coverURL string) 
 	return manager.downloadCover(ctx, code, coverURL)
 }
 
+// StoreCoverFromFile re-stores a local image (for example a video screenshot)
+// as the cover for code, replacing any existing cover. The database schema is
+// untouched: the cover lives purely as a file in coverDir.
+func StoreCoverFromFile(coverDir, code, srcPath string) error {
+	coverDir = strings.TrimSpace(coverDir)
+	code = normalizeCode(code)
+	if coverDir == "" {
+		return errors.New("cover dir is not configured")
+	}
+	if code == "" {
+		return errors.New("empty code")
+	}
+	srcPath = strings.TrimSpace(srcPath)
+	if srcPath == "" {
+		return errors.New("cover source is required")
+	}
+	info, err := os.Stat(srcPath)
+	if err != nil {
+		return fmt.Errorf("stat cover source: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return errors.New("cover source is not a regular file")
+	}
+
+	ext := strings.ToLower(path.Ext(srcPath))
+	if ext == "" || len(ext) > 5 {
+		ext = ".jpg"
+	}
+	target := filepath.Join(coverDir, code+ext)
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return fmt.Errorf("ensure cover dir: %w", err)
+	}
+	tmp := target + ".tmp"
+	if err := copyFileBytes(srcPath, tmp); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("copy cover: %w", err)
+	}
+	if !validCoverImageFile(tmp) {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("%w: source is not a usable image", errInvalidCover)
+	}
+	removeCoverFiles(coverDir, code)
+	if err := os.Rename(tmp, target); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("finalize cover: %w", err)
+	}
+	return nil
+}
+
 func normalizeCode(code string) string {
 	return strings.ToLower(strings.TrimSpace(code))
 }

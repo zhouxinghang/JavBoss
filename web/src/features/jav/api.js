@@ -225,6 +225,18 @@ export async function updateJavCover(code, url) {
   return res.json()
 }
 
+export async function updateJavCoverFromScreenshot(code, videoId, screenshotName) {
+  const res = await apiFetch(`/jav/${encodeURIComponent(code)}/cover/screenshot`, {
+    method: 'PUT',
+    headers: jsonHeaders,
+    body: JSON.stringify({ video_id: videoId, screenshot_name: screenshotName }),
+  })
+  if (!res.ok) {
+    throw await apiError(res)
+  }
+  return res.json()
+}
+
 export async function updateJavItem(id, payload) {
   const res = await apiFetch(`/jav/items/${encodeURIComponent(id)}`, {
     method: 'PUT',

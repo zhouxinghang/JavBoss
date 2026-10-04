@@ -389,7 +389,7 @@ export default function usePlayback({ showCenterToast, showToast }) {
   }, [])
 
   const openJavScreenshots = useCallback((video) => {
-    setScreenshotsAllowSetCover(false)
+    setScreenshotsAllowSetCover(true)
     setScreenshotsVideo(video)
   }, [])
 

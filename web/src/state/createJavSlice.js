@@ -19,6 +19,16 @@ export function createJavSlice({ set, get, lists }) {
     patchJavIdol: (updated) =>
       set((state) => ({ javItems: mergeJavIdol(state.javItems, updated) })),
     setJavError: (message) => set({ javError: message }),
+    // Cache-busting versions for JAV cover images keyed by normalized code.
+    javCoverVersions: {},
+    bumpJavCoverVersion: (code) =>
+      set((state) => {
+        const key = String(code || '')
+          .trim()
+          .toUpperCase()
+        if (!key) return {}
+        return { javCoverVersions: { ...state.javCoverVersions, [key]: Date.now() } }
+      }),
     videoHideJav: false,
     javSort: 'recent',
     javSortRules: [],

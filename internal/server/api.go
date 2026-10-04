@@ -121,6 +121,7 @@ func RegisterRoutes(router gin.IRoutes) {
 	router.POST("/jav/tags/replace", replaceJavTagsForItems)
 	router.GET("/jav/:code/cover", getJavCover)
 	router.PUT("/jav/:code/cover", updateJavCover)
+	router.PUT("/jav/:code/cover/screenshot", updateJavCoverFromScreenshot)
 	registerJavFavoriteRoutes(router, "jav", dbFavoriteEntityJav)
 	registerJavFavoriteRoutes(router, "idol", dbFavoriteEntityIdol)
 	registerJavFavoriteRoutes(router, "studio", dbFavoriteEntityStudio)

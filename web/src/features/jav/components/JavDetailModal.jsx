@@ -1,7 +1,9 @@
 import { restoreDetailScroll } from '@/utils/restoreDetailScroll'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined'
 import FavoriteBorderRoundedIcon from '@mui/icons-material/FavoriteBorderRounded'
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded'
 import { MovieEdit } from '@mui/icons-material'
@@ -11,8 +13,16 @@ import StarBorderRoundedIcon from '@mui/icons-material/StarBorderRounded'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import { IconButton, Popper, Rating, Tooltip } from '@mui/material'
 
-import { deleteVideoScreenshot, fetchVideoScreenshotsByIds } from '@/features/video/api'
-import { getResolvedJavSampleImages, resolveJavSampleImages } from '@/features/jav/api'
+import {
+  deleteVideoScreenshot,
+  fetchVideoScreenshotsByIds,
+  updateVideoCover,
+} from '@/features/video/api'
+import {
+  getResolvedJavSampleImages,
+  resolveJavSampleImages,
+  updateJavCoverFromScreenshot,
+} from '@/features/jav/api'
 import AppModal from '@/shared/ui/AppModal'
 import { IdolCard } from '@/features/jav/components/JavIdolGrid'
 import { SeriesCard } from '@/features/jav/components/JavSeriesView'
@@ -224,12 +234,13 @@ function JavSampleImageGrid({ images, itemId }) {
 }
 /* eslint-enable jsx-a11y/no-noninteractive-element-to-interactive-role */
 
-function JavScreenshotGrid({ videos, onPlayAtTime, onCoverChanged }) {
+function JavScreenshotGrid({ videos, javCode, onPlayAtTime, onCoverChanged, onJavCoverChanged }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
   const [failedCount, setFailedCount] = useState(0)
   const [error, setError] = useState('')
   const [deletingKey, setDeletingKey] = useState('')
+  const [settingCoverKey, setSettingCoverKey] = useState('')
   const [previewItem, setPreviewItem] = useState(null)
   const videoIdentity = (videos || [])
     .map((video) => `${video?.id || ''}:${video?.updated_at || ''}`)
@@ -248,6 +259,7 @@ function JavScreenshotGrid({ videos, onPlayAtTime, onCoverChanged }) {
     setFailedCount(0)
     setError('')
     setDeletingKey('')
+    setSettingCoverKey('')
     if (videoById.size === 0) {
       setLoading(false)
       return undefined
@@ -318,6 +330,40 @@ function JavScreenshotGrid({ videos, onPlayAtTime, onCoverChanged }) {
     } finally {
       setDeletingKey('')
     }
+  }
+
+  const handleSetCover = async (video, screenshot) => {
+    // Allow re-applying the cover even when it is already the video cover so the
+    // JAV cover can be refreshed with the same screenshot.
+    if (!video?.id || !screenshot?.name || settingCoverKey) return
+    const actionKey = screenshotActionKey(video, screenshot)
+    setSettingCoverKey(actionKey)
+    setError('')
+    try {
+      const updated = await updateVideoCover(video.id, screenshot.name)
+      setItems((current) =>
+        current.map((candidate) =>
+          Number(candidate?.video?.id) === Number(video.id)
+            ? { ...candidate, is_cover: candidate.name === screenshot.name }
+            : candidate
+        )
+      )
+      onCoverChanged?.(updated)
+    } catch (err) {
+      setError(getErrorMessage(err))
+      setSettingCoverKey('')
+      return
+    }
+    if (javCode) {
+      // Also re-store the JAV cover so the detail page's main cover updates.
+      try {
+        await updateJavCoverFromScreenshot(javCode, video.id, screenshot.name)
+        onJavCoverChanged?.()
+      } catch (err) {
+        setError(getErrorMessage(err))
+      }
+    }
+    setSettingCoverKey('')
   }
 
   if (loading) {
@@ -419,6 +465,35 @@ function JavScreenshotGrid({ videos, onPlayAtTime, onCoverChanged }) {
                       </IconButton>
                     </span>
                   </Tooltip>
+                  <Tooltip
+                    title={
+                      screenshot.is_cover
+                        ? zh('当前封面', 'Current cover')
+                        : zh('设为封面', 'Set as cover')
+                    }
+                  >
+                    <span>
+                      <IconButton
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          void handleSetCover(video, screenshot)
+                        }}
+                        disabled={Boolean(settingCoverKey)}
+                        aria-label={
+                          screenshot.is_cover
+                            ? zh('当前封面', 'Current cover')
+                            : zh('设为封面', 'Set as cover')
+                        }
+                        className="!h-10 !w-10 !bg-white/90 !text-gray-900 hover:!bg-white disabled:!opacity-50"
+                      >
+                        {screenshot.is_cover ? (
+                          <CheckCircleOutlineIcon fontSize="small" />
+                        ) : (
+                          <ImageOutlinedIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
                 </div>
               </div>
               <div className="px-2 py-1.5">
@@ -489,6 +564,7 @@ export default function JavDetailModal({
   onVideoPlay,
   onVideoPlayAtTime,
   onVideoCoverChanged,
+  onJavCoverChanged,
   onVideoOpenFile,
   onVideoRevealFile,
   openFileLabel,
@@ -935,8 +1011,10 @@ export default function JavDetailModal({
             </h3>
             <JavScreenshotGrid
               videos={videos}
+              javCode={code}
               onPlayAtTime={onVideoPlayAtTime}
               onCoverChanged={onVideoCoverChanged}
+              onJavCoverChanged={onJavCoverChanged}
             />
           </section>
         </div>

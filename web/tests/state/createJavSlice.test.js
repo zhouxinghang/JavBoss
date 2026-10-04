@@ -34,3 +34,16 @@ test('a failed compact toggle rolls the choice back', async (t) => {
   assert.equal(useStore.getState().javCompactMode, false)
   assert.ok(useStore.getState().javError)
 })
+
+test('bumping the JAV cover version invalidates the cached cover per code', async (t) => {
+  const [{ useStore }] = await loadModules(t, ['store.js'])
+  useStore.setState({ javCoverVersions: {} })
+
+  useStore.getState().bumpJavCoverVersion('abc-123')
+  const version = useStore.getState().javCoverVersions['ABC-123']
+  assert.ok(version > 0)
+
+  // Empty codes are ignored so the map cannot grow with junk keys.
+  useStore.getState().bumpJavCoverVersion('')
+  assert.deepEqual(Object.keys(useStore.getState().javCoverVersions), ['ABC-123'])
+})

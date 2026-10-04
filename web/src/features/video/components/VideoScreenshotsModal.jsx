@@ -14,6 +14,8 @@ import {
   resetVideoCover,
   updateVideoCover,
 } from '@/features/video/api'
+import { updateJavCoverFromScreenshot } from '@/features/jav/api'
+import { useStore } from '@/store'
 import { getVideoDisplayName } from '@/utils/display'
 import { getErrorMessage } from '@/utils/errors'
 import { zh } from '@/utils/i18n'
@@ -40,7 +42,11 @@ export default function VideoScreenshotsModal({
   const [settingCoverName, setSettingCoverName] = useState('')
   const open = Boolean(video?.id)
   const title = useMemo(() => getVideoDisplayName(video), [video])
-  const currentCoverName = useMemo(() => items.find((item) => item?.is_cover)?.name || '', [items])
+  const javCode = String(video?.jav?.code || video?.locations?.[0]?.jav?.code || '').trim()
+  const currentCoverName = useMemo(
+    () => items.find((item) => item?.is_cover)?.name || String(video?.cover_screenshot_name || ''),
+    [items, video?.cover_screenshot_name]
+  )
   const defaultCoverPreviewSrc = useMemo(() => {
     if (!video?.id) return ''
     const params = new URLSearchParams({ default: '1' })
@@ -126,7 +132,8 @@ export default function VideoScreenshotsModal({
   }
 
   const handleSetCover = async (item) => {
-    if (!video?.id || !item?.name || settingCoverName || item.is_cover) return
+    // Allow re-applying so an existing video cover can also refresh the JAV cover.
+    if (!video?.id || !item?.name || settingCoverName) return
     setSettingCoverName(item.name)
     setError('')
     try {
@@ -138,9 +145,19 @@ export default function VideoScreenshotsModal({
     } catch (err) {
       console.error(zh('保存视频封面失败', 'Failed to save video cover'), err)
       setError(getErrorMessage(err))
-    } finally {
       setSettingCoverName('')
+      return
     }
+    if (javCode) {
+      // Keep the JAV cover in sync so JAV pages show the chosen screenshot.
+      try {
+        await updateJavCoverFromScreenshot(javCode, video.id, item.name)
+        useStore.getState().bumpJavCoverVersion?.(javCode)
+      } catch (err) {
+        setError(getErrorMessage(err))
+      }
+    }
+    setSettingCoverName('')
   }
 
   const handleResetCover = async () => {
@@ -315,7 +332,7 @@ export default function VideoScreenshotsModal({
                                 event.stopPropagation()
                                 handleSetCover(item)
                               }}
-                              disabled={Boolean(settingCoverName) || item.is_cover}
+                              disabled={Boolean(settingCoverName)}
                               aria-label={
                                 item.is_cover
                                   ? zh('当前封面', 'Current cover')

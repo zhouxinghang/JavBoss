@@ -51,6 +51,7 @@ export default function JavDetail(props) {
     onManageVideoRename,
     onManageVideoDelete,
     onManageVideoTagClick,
+    handleJavCoverChanged,
   } = model
   return (
     <>
@@ -104,6 +105,7 @@ export default function JavDetail(props) {
         onVideoRename={onManageVideoRename}
         onVideoDelete={onManageVideoDelete}
         onVideoTagClick={onManageVideoTagClick}
+        onJavCoverChanged={handleJavCoverChanged}
       />
       <JavItemEditors {...model} />
     </>

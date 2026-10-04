@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,6 +19,7 @@ import (
 	"javboss/internal/common"
 	dbpkg "javboss/internal/db"
 	"javboss/internal/jav"
+	"javboss/internal/manager"
 	"javboss/internal/models"
 	"javboss/internal/util"
 
@@ -677,5 +681,118 @@ func TestReadVideoScreenshotInfosMissingDirectory(t *testing.T) {
 	}
 	if items == nil || len(items) != 0 {
 		t.Fatalf("expected a non-nil empty screenshot list, got %#v", items)
+	}
+}
+
+func writeTestScreenshot(t *testing.T, path string) {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 320, 180))
+	img.Set(0, 0, color.RGBA{R: 10, G: 120, B: 220, A: 255})
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("create screenshot: %v", err)
+	}
+	defer f.Close()
+	if err := png.Encode(f, img); err != nil {
+		t.Fatalf("encode screenshot: %v", err)
+	}
+}
+
+func TestUpdateVideoCoverReStoresCoverFile(t *testing.T) {
+	dataDir := t.TempDir()
+	database, err := dbpkg.Open(filepath.Join(dataDir, "javboss.db"))
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	previousDB := common.DB
+	common.DB = database
+	previousConfig := common.AppConfig
+	common.AppConfig = &common.Config{DatabasePath: filepath.Join(dataDir, "javboss.db")}
+	t.Cleanup(func() {
+		common.DB = previousDB
+		common.AppConfig = previousConfig
+		if sqlDB, dbErr := database.DB(); dbErr == nil {
+			_ = sqlDB.Close()
+		}
+	})
+
+	ctx := context.Background()
+	now := time.Unix(1710000000, 0).UTC()
+	dir := models.Directory{Path: "/media/cover-restore"}
+	video := models.Video{Fingerprint: "cover-restore-video", DurationSec: 1800}
+	if err := database.Create(&dir).Error; err != nil {
+		t.Fatalf("create directory: %v", err)
+	}
+	if err := database.Create(&video).Error; err != nil {
+		t.Fatalf("create video: %v", err)
+	}
+	if _, err := dbpkg.UpsertVideoLocation(ctx, video.ID, dir.ID, "movie.mp4", now); err != nil {
+		t.Fatalf("create video location: %v", err)
+	}
+
+	screenshotDir := filepath.Join(dataDir, "video", strconv.FormatInt(video.ID, 10), "screenshot")
+	if err := os.MkdirAll(screenshotDir, 0o755); err != nil {
+		t.Fatalf("mkdir screenshot dir: %v", err)
+	}
+	screenshotName := "mpv_00-00-05.png"
+	screenshotPath := filepath.Join(screenshotDir, screenshotName)
+	writeTestScreenshot(t, screenshotPath)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.PUT("/videos/:id/cover", updateVideoCover)
+	router.DELETE("/videos/:id/cover", resetVideoCover)
+	router.DELETE("/videos/:id/screenshots/:name", deleteVideoScreenshot)
+
+	body := fmt.Sprintf(`{"screenshot_name": %q}`, screenshotName)
+	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/videos/%d/cover", video.ID), strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("set cover status = %d, body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	coverPath, ok := manager.FindVideoCoverPath(dataDir, video.ID)
+	if !ok {
+		t.Fatal("cover file was not re-stored")
+	}
+	if filepath.Ext(coverPath) != ".png" {
+		t.Fatalf("cover extension = %q, want .png", filepath.Ext(coverPath))
+	}
+
+	// The re-stored cover must survive deletion of the source screenshot.
+	deleteReq := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/videos/%d/screenshots/%s", video.ID, screenshotName), nil)
+	deleteRecorder := httptest.NewRecorder()
+	router.ServeHTTP(deleteRecorder, deleteReq)
+	if deleteRecorder.Code != http.StatusOK {
+		t.Fatalf("delete screenshot status = %d, body=%s", deleteRecorder.Code, deleteRecorder.Body.String())
+	}
+	if _, err := os.Stat(screenshotPath); !os.IsNotExist(err) {
+		t.Fatalf("screenshot was not deleted: %v", err)
+	}
+	if _, ok := manager.FindVideoCoverPath(dataDir, video.ID); !ok {
+		t.Fatal("re-stored cover was removed with its source screenshot")
+	}
+	stored, err := dbpkg.GetVideo(ctx, video.ID)
+	if err != nil || stored == nil {
+		t.Fatalf("reload video: %v (video=%v)", err, stored)
+	}
+	if strings.TrimSpace(stored.CoverScreenshotName) != screenshotName {
+		t.Fatalf("cover state cleared despite a re-stored cover: %q", stored.CoverScreenshotName)
+	}
+	resolved, ok := customVideoCoverPath(dataDir, stored)
+	if !ok || resolved != coverPath {
+		t.Fatalf("customVideoCoverPath() = %q, %v; want %q, true", resolved, ok, coverPath)
+	}
+
+	resetReq := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/videos/%d/cover", video.ID), nil)
+	resetRecorder := httptest.NewRecorder()
+	router.ServeHTTP(resetRecorder, resetReq)
+	if resetRecorder.Code != http.StatusOK {
+		t.Fatalf("reset cover status = %d, body=%s", resetRecorder.Code, resetRecorder.Body.String())
+	}
+	if _, ok := manager.FindVideoCoverPath(dataDir, video.ID); ok {
+		t.Fatal("cover file still present after reset")
 	}
 }

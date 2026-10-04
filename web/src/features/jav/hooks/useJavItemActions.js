@@ -60,7 +60,10 @@ export default function useJavItemActions({
   const primaryVideo = useMemo(() => (item?.videos || [])[0], [item])
   const { coverAspectPercent } = useMemo(() => getIdolCardLayoutProps(), [])
   const code = item?.code?.trim()
-  const [coverVersion, setCoverVersion] = useState(0)
+  const normalizedCode = String(code || '')
+    .trim()
+    .toUpperCase()
+  const coverVersion = useStore((state) => state.javCoverVersions?.[normalizedCode] || 0)
   const [editorOpen, setEditorOpen] = useState(false)
   const [customTagEditorOpen, setCustomTagEditorOpen] = useState(false)
   const [coverCropEditorOpen, setCoverCropEditorOpen] = useState(false)
@@ -282,7 +285,7 @@ export default function useJavItemActions({
       useStore.getState().patchJavItem(updated)
     }
     if (coverUpdated) {
-      setCoverVersion(Date.now())
+      useStore.getState().bumpJavCoverVersion?.(code)
     }
     setEditorOpen(false)
   }
@@ -307,6 +310,10 @@ export default function useJavItemActions({
       useStore.getState().patchJavItem(updated)
     }
     setCoverCropEditorOpen(false)
+  }
+
+  const handleJavCoverChanged = () => {
+    useStore.getState().bumpJavCoverVersion?.(code)
   }
 
   const canPlay = Boolean(primaryVideo && primaryVideo.id)
@@ -681,5 +688,6 @@ export default function useJavItemActions({
     setCoverCropEditorOpen,
     handleOpenCoverCropEditor,
     handleCoverCropSaved,
+    handleJavCoverChanged,
   }
 }
