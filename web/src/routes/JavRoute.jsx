@@ -164,6 +164,7 @@ export default function JavRoute({
     )(state)
   )
   const javSortResolution = resolveJavSort({
+    javTab,
     javSearchTerm,
     javIdolIds,
     javTags,

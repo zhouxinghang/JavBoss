@@ -3895,6 +3895,66 @@ func TestMarkJavSampleImagesNotFound(t *testing.T) {
 	}
 }
 
+func TestSearchJavWatchedOnlyOrdersByLastPlayed(t *testing.T) {
+	gdb := openTestDB(t)
+	ctx := context.Background()
+	now := time.Unix(1710000000, 0).UTC()
+
+	dir := models.Directory{Path: "/media/watched"}
+	if err := gdb.Create(&dir).Error; err != nil {
+		t.Fatalf("create directory: %v", err)
+	}
+	javs := []models.Jav{
+		{Code: "WATCH-001", Title: "Unplayed"},
+		{Code: "WATCH-002", Title: "Older"},
+		{Code: "WATCH-003", Title: "Newer"},
+	}
+	if err := gdb.Create(&javs).Error; err != nil {
+		t.Fatalf("create javs: %v", err)
+	}
+	videos := make([]models.Video, len(javs))
+	for i := range javs {
+		videos[i] = models.Video{Fingerprint: fmt.Sprintf("watched-fp-%d", i)}
+		if err := gdb.Create(&videos[i]).Error; err != nil {
+			t.Fatalf("create video: %v", err)
+		}
+		loc, err := UpsertVideoLocation(ctx, videos[i].ID, dir.ID, fmt.Sprintf("watched-%d.mp4", i), now)
+		if err != nil {
+			t.Fatalf("create location: %v", err)
+		}
+		if err := gdb.Model(&models.VideoLocation{}).Where("id = ?", loc.ID).Update("jav_id", javs[i].ID).Error; err != nil {
+			t.Fatalf("link location: %v", err)
+		}
+	}
+
+	if err := IncrementVideoPlayCount(ctx, videos[1].ID); err != nil {
+		t.Fatalf("increment older play count: %v", err)
+	}
+	time.Sleep(20 * time.Millisecond)
+	if err := IncrementVideoPlayCount(ctx, videos[2].ID); err != nil {
+		t.Fatalf("increment newer play count: %v", err)
+	}
+
+	items, total, err := SearchJavWithPrefixFilters(ctx, nil, nil, "", "", "last_played", 100, 0, nil, []int64{dir.ID}, JavSearchFilters{StudioID: -1, WatchedOnly: true})
+	if err != nil {
+		t.Fatalf("SearchJavWithPrefixFilters watched: %v", err)
+	}
+	if total != 2 || len(items) != 2 {
+		t.Fatalf("watched only = total %d items %d, want 2", total, len(items))
+	}
+	if items[0].Code != "WATCH-003" || items[1].Code != "WATCH-002" {
+		t.Fatalf("watched order = [%s, %s], want [WATCH-003, WATCH-002]", items[0].Code, items[1].Code)
+	}
+
+	all, allTotal, err := SearchJavWithPrefixFilters(ctx, nil, nil, "", "", "last_played", 100, 0, nil, []int64{dir.ID}, JavSearchFilters{StudioID: -1})
+	if err != nil {
+		t.Fatalf("SearchJavWithPrefixFilters all: %v", err)
+	}
+	if allTotal != 3 || len(all) != 3 {
+		t.Fatalf("without watched filter = total %d items %d, want 3", allTotal, len(all))
+	}
+}
+
 func openTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 

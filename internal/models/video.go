@@ -18,6 +18,7 @@ type Video struct {
 	UpdatedAt           time.Time       `json:"updated_at"`
 	JavScrapeOverride   string          `json:"jav_scrape_override"`
 	CoverScreenshotName string          `json:"cover_screenshot_name"`
+	LastPlayedAt        *time.Time      `json:"last_played_at,omitempty"` // Nil until the video has been played at least once.
 	Tags                []Tag           `json:"tags,omitempty" gorm:"many2many:video_tag"`
 	JavID               *int64          `json:"jav_id" gorm:"-"`
 	Jav                 *Jav            `json:"jav,omitempty" gorm:"-"`

@@ -4,6 +4,7 @@ import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded'
 import CollectionsBookmarkOutlinedIcon from '@mui/icons-material/CollectionsBookmarkOutlined'
 import DisplaySettingsOutlinedIcon from '@mui/icons-material/DisplaySettingsOutlined'
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined'
+import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
 import LocalOfferOutlinedIcon from '@mui/icons-material/LocalOfferOutlined'
 import MovieCreationOutlinedIcon from '@mui/icons-material/MovieCreationOutlined'
 import NumbersRoundedIcon from '@mui/icons-material/NumbersRounded'
@@ -19,6 +20,7 @@ import { zh } from '@/utils/i18n'
 const tabs = [
   { id: 'video', label: zh('视频', 'Video'), icon: VideoLibraryOutlinedIcon },
   { id: 'list', label: 'JAV', icon: MovieCreationOutlinedIcon },
+  { id: 'recent', label: zh('最近观看', 'Recently watched'), icon: HistoryRoundedIcon },
   { id: 'idol', label: zh('女优', 'Idols'), icon: PeopleAltOutlinedIcon },
   { id: 'studio', label: zh('片商', 'Studios'), icon: VideocamOutlinedIcon },
   { id: 'series', label: zh('系列', 'Series'), icon: CollectionsBookmarkOutlinedIcon },

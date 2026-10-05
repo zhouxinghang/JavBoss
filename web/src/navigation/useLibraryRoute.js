@@ -156,7 +156,8 @@ export default function useLibraryRoute({ setJavSearchInput, setSearchInput, con
           studioFavoriteGroupId: jav.tab === 'studio' ? jav.favoriteGroupId : null,
           seriesPage: jav.tab === 'series' ? jav.page : 1,
           seriesFavoriteGroupId: jav.tab === 'series' ? jav.favoriteGroupId : null,
-          javTempSort: jav.tab !== 'list' || jav.random ? '' : jav.tempSort,
+          javTempSort:
+            (jav.tab === 'list' || jav.tab === 'recent') && !jav.random ? jav.tempSort : '',
           idolTempSort:
             jav.tab === 'idol' && (!jav.favoriteGroupId || sameIdolFavoriteGroup || jav.tempSort)
               ? jav.tempSort

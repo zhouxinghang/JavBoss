@@ -43,7 +43,12 @@ export default function useScrollRestoration({
         loadMoreVideos()
         return
       }
-      if (isJavMode && javTab === 'list' && waterfallModes.jav && javWaterfallHasMore) {
+      if (
+        isJavMode &&
+        (javTab === 'list' || javTab === 'recent') &&
+        waterfallModes.jav &&
+        javWaterfallHasMore
+      ) {
         loadMoreJavs()
         return
       }

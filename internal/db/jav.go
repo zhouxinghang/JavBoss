@@ -176,6 +176,7 @@ type JavSearchFilters struct {
 	FavoriteGroupID   int64
 	FavoriteRatingMin *float64
 	FavoriteRatingMax *float64
+	WatchedOnly       bool
 }
 
 // SearchJavWithPrefix lists Jav metadata filtered by an exact code prefix plus other filters.
@@ -235,6 +236,10 @@ func SearchJavWithPrefixFilters(ctx context.Context, idolIDs []int64, tagIDs []i
 		order = "COALESCE((SELECT SUM(COALESCE(v.play_count, 0)) FROM video_location vl JOIN directory d ON d.id = vl.directory_id JOIN video v ON v.id = vl.video_id WHERE vl.jav_id = jav.id AND " + activeLocationWhereSQL("vl", "d") + directoryFilterSQL("vl", directoryIDs) + "), 0) DESC, jav.created_at DESC, jav.id DESC"
 	case "play_count_asc":
 		order = "COALESCE((SELECT SUM(COALESCE(v.play_count, 0)) FROM video_location vl JOIN directory d ON d.id = vl.directory_id JOIN video v ON v.id = vl.video_id WHERE vl.jav_id = jav.id AND " + activeLocationWhereSQL("vl", "d") + directoryFilterSQL("vl", directoryIDs) + "), 0) ASC, jav.created_at ASC, jav.id ASC"
+	case "last_played", "last_played_desc":
+		order = "COALESCE((SELECT MAX(v.last_played_at) FROM video_location vl JOIN directory d ON d.id = vl.directory_id JOIN video v ON v.id = vl.video_id WHERE vl.jav_id = jav.id AND v.last_played_at IS NOT NULL AND " + activeLocationWhereSQL("vl", "d") + directoryFilterSQL("vl", directoryIDs) + "), '') DESC, jav.created_at DESC, jav.id DESC"
+	case "last_played_asc":
+		order = "COALESCE((SELECT MAX(v.last_played_at) FROM video_location vl JOIN directory d ON d.id = vl.directory_id JOIN video v ON v.id = vl.video_id WHERE vl.jav_id = jav.id AND v.last_played_at IS NOT NULL AND " + activeLocationWhereSQL("vl", "d") + directoryFilterSQL("vl", directoryIDs) + "), '') ASC, jav.created_at ASC, jav.id ASC"
 	case "favorite_rating", "favorite_rating_desc":
 		order = "jav.favorite_rating DESC, jav.created_at DESC, jav.id DESC"
 	case "favorite_rating_asc":
@@ -1165,6 +1170,19 @@ func buildJavFilter(ctx context.Context, idolIDs []int64, tagIDs []int64, search
 		Where(activeLocationWhereSQL("vl", "d"))
 	validLocation = applyDirectoryFilter(validLocation, "vl", directoryIDs)
 	q = q.Where("EXISTS (?)", validLocation)
+	if filters.WatchedOnly {
+		// Only include works with at least one active location that has been played.
+		watchedLocation := common.DB.WithContext(ctx).
+			Table("video_location vl_watch").
+			Select("1").
+			Joins("JOIN directory d_watch ON d_watch.id = vl_watch.directory_id").
+			Joins("JOIN video v_watch ON v_watch.id = vl_watch.video_id").
+			Where("vl_watch.jav_id = jav.id").
+			Where(activeLocationWhereSQL("vl_watch", "d_watch")).
+			Where("v_watch.last_played_at IS NOT NULL")
+		watchedLocation = applyDirectoryFilter(watchedLocation, "vl_watch", directoryIDs)
+		q = q.Where("EXISTS (?)", watchedLocation)
+	}
 	if search != "" {
 		like := fmt.Sprintf("%%%s%%", search)
 		q = q.Where("code LIKE ? OR title LIKE ?", like, like)

@@ -412,7 +412,7 @@ export default function TopBar({
   const isJavDownload = isJavMode && javTab === 'download'
   const activeSelectedCount = Number(selectedCount)
   const hasSelection =
-    (!isJavMode || javTab === 'list') &&
+    (!isJavMode || javTab === 'list' || javTab === 'recent') &&
     Number.isFinite(activeSelectedCount) &&
     activeSelectedCount > 0
   const placeholder = isJavMode
@@ -445,7 +445,7 @@ export default function TopBar({
           JavBoss
         </button>
         <div className="filter-topbar__controls">
-          {isJavMode && !isJavDownload ? (
+          {isJavMode && !isJavDownload && javTab !== 'recent' ? (
             <div
               ref={favoriteMenuRef}
               className="relative -ml-1 mr-4 shrink-0 border-r border-slate-200 pr-4"

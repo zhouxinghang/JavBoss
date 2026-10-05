@@ -346,6 +346,7 @@ function JavListRoute({
 }
 
 export default function JavTabs({ tab, ...props }) {
+  if (tab === 'recent') return <JavListRoute {...props.list} buildJavUrl={props.buildJavUrl} />
   if (tab === 'idol') return <JavIdolRoute {...props.idol} buildJavUrl={props.buildJavUrl} />
   if (tab === 'studio') return <JavStudioRoute {...props.studio} buildJavUrl={props.buildJavUrl} />
   if (tab === 'series') {

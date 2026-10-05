@@ -16,6 +16,7 @@ export function buildLibraryPageTitle({
     ? zh('视频', 'Videos')
     : {
         list: 'JAV',
+        recent: zh('最近观看', 'Recently watched'),
         idol: zh('女优', 'Idols'),
         studio: zh('片商', 'Studios'),
         series: zh('系列', 'Series'),

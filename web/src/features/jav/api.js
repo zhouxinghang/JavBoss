@@ -73,12 +73,14 @@ export async function fetchJavs({
   sort = '',
   seed = null,
   favoriteGroupId = null,
+  watchedOnly = false,
   signal,
 } = {}) {
   const params = new URLSearchParams()
   params.set('limit', String(limit))
   params.set('offset', String(offset))
   if (search) params.set('search', search)
+  if (watchedOnly) params.set('watched', '1')
   if (idolIds.length) params.set('idol_ids', idolIds.join(','))
   if (tagIds.length) params.set('tag_ids', tagIds.join(','))
   if (directoryIds.length) params.set('directory_ids', directoryIds.join(','))

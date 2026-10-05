@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"javboss/internal/common"
 	dbpkg "javboss/internal/db"
@@ -353,6 +354,78 @@ func TestGetJavItemDetail(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSearchJavWatchedParamFiltersUnplayedWorks(t *testing.T) {
+	database, err := dbpkg.Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatalf("open test database: %v", err)
+	}
+	previousDB := common.DB
+	common.DB = database
+	t.Cleanup(func() {
+		common.DB = previousDB
+		if sqlDB, dbErr := database.DB(); dbErr == nil {
+			_ = sqlDB.Close()
+		}
+	})
+
+	ctx := context.Background()
+	now := time.Unix(1710000000, 0).UTC()
+	dir := models.Directory{Path: "/media/api-watched"}
+	if err := database.Create(&dir).Error; err != nil {
+		t.Fatalf("create directory: %v", err)
+	}
+	javs := []models.Jav{{Code: "APIWATCH-001"}, {Code: "APIWATCH-002"}, {Code: "APIWATCH-003"}}
+	if err := database.Create(&javs).Error; err != nil {
+		t.Fatalf("create javs: %v", err)
+	}
+	for i := range javs {
+		video := models.Video{Fingerprint: "api-watched-fp-" + javs[i].Code}
+		if err := database.Create(&video).Error; err != nil {
+			t.Fatalf("create video: %v", err)
+		}
+		loc, err := dbpkg.UpsertVideoLocation(ctx, video.ID, dir.ID, javs[i].Code+".mp4", now)
+		if err != nil {
+			t.Fatalf("create location: %v", err)
+		}
+		if err := database.Model(&models.VideoLocation{}).Where("id = ?", loc.ID).Update("jav_id", javs[i].ID).Error; err != nil {
+			t.Fatalf("link location: %v", err)
+		}
+		if i == 2 {
+			continue
+		}
+		if err := dbpkg.IncrementVideoPlayCount(ctx, video.ID); err != nil {
+			t.Fatalf("increment play count: %v", err)
+		}
+	}
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.GET("/jav", searchJav)
+
+	request := func(query string) int64 {
+		t.Helper()
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/jav?"+query, nil))
+		if response.Code != http.StatusOK {
+			t.Fatalf("status = %d: %s", response.Code, response.Body.String())
+		}
+		var payload struct {
+			Total int64 `json:"total"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+			t.Fatal(err)
+		}
+		return payload.Total
+	}
+
+	if watched := request("watched=1&sort=last_played"); watched != 2 {
+		t.Fatalf("watched=1 total = %d, want 2", watched)
+	}
+	if all := request("sort=last_played"); all != 3 {
+		t.Fatalf("unfiltered total = %d, want 3", all)
 	}
 }
 

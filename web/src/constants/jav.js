@@ -51,6 +51,15 @@ export const JAV_SORT_OPTIONS = [
     desc: ['多→少', 'high→low'],
   },
   {
+    base: 'last_played',
+    defaultValue: 'last_played',
+    ascValue: 'last_played_asc',
+    descValue: 'last_played',
+    label: ['最近观看', 'Recently watched'],
+    asc: ['远→近', 'old→new'],
+    desc: ['近→远', 'new→old'],
+  },
+  {
     base: 'favorite_rating',
     defaultValue: 'favorite_rating',
     ascValue: 'favorite_rating_asc',
@@ -236,6 +245,7 @@ export function normalizeJavSort(sort, fallback = 'recent') {
     duration_desc: 'duration',
     release_desc: 'release',
     play_count_desc: 'play_count',
+    last_played_desc: 'last_played',
     favorite_rating_desc: 'favorite_rating',
   })
 }
@@ -312,6 +322,11 @@ export function resolveJavSort(state) {
   const temporary = normalizeJavSort(state?.javTempSort, '')
   if (temporary) {
     return { sort: temporary, source: 'temporary', rule: null }
+  }
+
+  // The recently watched tab defaults to ordering works by their latest watch time.
+  if (state?.javTab === 'recent') {
+    return { sort: 'last_played', source: 'default', rule: null }
   }
 
   const active = activeJavSortFilters(state)

@@ -100,7 +100,9 @@ export const parseUrlState = (searchString = window.location.search, options = {
           ? 'studio'
           : rawJavTab === 'series'
             ? 'series'
-            : 'list'
+            : rawJavTab === 'recent'
+              ? 'recent'
+              : 'list'
   const rawJavTempSort = (sp.get('temp_sort') || '').trim()
   const javTempSort =
     javTab === 'idol' ? normalizeIdolSort(rawJavTempSort, '') : normalizeJavSort(rawJavTempSort, '')
@@ -147,6 +149,7 @@ export const buildUrlFromState = (state, basePath = window.location.pathname) =>
       state.jav.tab === 'idol' ||
       state.jav.tab === 'studio' ||
       state.jav.tab === 'series' ||
+      state.jav.tab === 'recent' ||
       state.jav.tab === 'download'
     ) {
       sp.set('tab', state.jav.tab)
@@ -202,7 +205,7 @@ export const buildUrlFromState = (state, basePath = window.location.pathname) =>
       }
     }
     if (
-      (state.jav.tab === 'list' || state.jav.tab === 'idol') &&
+      (state.jav.tab === 'list' || state.jav.tab === 'recent' || state.jav.tab === 'idol') &&
       !state.jav.random &&
       state.jav.tempSort
     ) {
@@ -263,7 +266,9 @@ export const normalizeUrlStateFromStore = (store, tagsByName) => {
               ? 'studio'
               : store.javTab === 'series'
                 ? 'series'
-                : 'list',
+                : store.javTab === 'recent'
+                  ? 'recent'
+                  : 'list',
       page:
         store.javTab === 'idol'
           ? store.idolPage
@@ -301,7 +306,7 @@ export const normalizeUrlStateFromStore = (store, tagsByName) => {
           ? normalizeIdolProfileFilters(store.idolProfileFilters)
           : createDefaultIdolProfileFilters(),
       tempSort:
-        store.javTab === 'list' && !store.javRandomMode
+        (store.javTab === 'list' || store.javTab === 'recent') && !store.javRandomMode
           ? store.javTempSort || ''
           : store.javTab === 'idol'
             ? store.idolTempSort || ''

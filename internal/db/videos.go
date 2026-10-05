@@ -531,6 +531,8 @@ func DeleteByIDs(ctx context.Context, ids []int64) error {
 }
 
 // IncrementVideoPlayCount increments the play count for a video if it has an active location.
+// It also records the watch time used by the recently watched list. UpdateColumns is
+// intentional: it keeps updated_at (a thumbnail cache key) stable while playing.
 func IncrementVideoPlayCount(ctx context.Context, id int64) error {
 	if id <= 0 {
 		return errors.New("video id cannot be zero")
@@ -539,7 +541,10 @@ func IncrementVideoPlayCount(ctx context.Context, id int64) error {
 		Model(&models.Video{}).
 		Where("id = ?", id).
 		Where("EXISTS (?)", activeVideoLocationSubquery(ctx)).
-		UpdateColumn("play_count", gorm.Expr("COALESCE(play_count, 0) + 1")).Error; err != nil {
+		UpdateColumns(map[string]any{
+			"play_count":     gorm.Expr("COALESCE(play_count, 0) + 1"),
+			"last_played_at": time.Now(),
+		}).Error; err != nil {
 		return fmt.Errorf("increment play count: %w", err)
 	}
 	return nil

@@ -122,7 +122,7 @@ export default function useWebHotkeys({ isJavMode, waterfallModes, setJavQueryEd
         return
       }
 
-      const waterfallKey = javTab === 'list' ? 'jav' : javTab
+      const waterfallKey = javTab === 'list' || javTab === 'recent' ? 'jav' : javTab
       const activeWaterfallMode = Boolean(waterfallModes[waterfallKey])
       if (activeWaterfallMode) return
       if (javTab === 'idol') {

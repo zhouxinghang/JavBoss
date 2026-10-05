@@ -30,6 +30,15 @@ test('query keys include every effective filter and directory visibility', async
     queries.idolQuery({ ...state, idolFavoriteGroupId: 1, idolTempSort: 'name' }).sort,
     'name'
   )
+
+  // The recently watched tab only lists played works and defaults to watch time order.
+  const recentState = { ...state, javTab: 'recent', javFavoriteGroupId: 4 }
+  const recent = queries.javQuery(recentState)
+  assert.equal(recent.watchedOnly, true)
+  assert.equal(recent.sort, 'last_played')
+  assert.equal(recent.favoriteGroupId, null)
+  assert.equal(queries.javQuery({ ...recentState, javTab: 'list' }).watchedOnly, false)
+  assert.notEqual(queries.javQueryKey(recentState), queries.javQueryKey(state))
 })
 
 test('list resources are independent per store and forward cancellation to the API', async (t) => {

@@ -500,6 +500,48 @@ func TestVideoLocationsAllowSameVideoInMultipleDirectories(t *testing.T) {
 	}
 }
 
+func TestIncrementVideoPlayCountRecordsLastPlayedAt(t *testing.T) {
+	gdb := openTestDB(t)
+	ctx := context.Background()
+	now := time.Unix(1710000000, 0).UTC()
+
+	dir := models.Directory{Path: "/tmp/recent"}
+	if err := gdb.Create(&dir).Error; err != nil {
+		t.Fatalf("create directory: %v", err)
+	}
+	video := models.Video{DirectoryID: dir.ID, Path: "played.mp4", Filename: "played.mp4", Fingerprint: "fp-played", ModifiedAt: now, CreatedAt: now, UpdatedAt: now}
+	if err := gdb.Create(&video).Error; err != nil {
+		t.Fatalf("create video: %v", err)
+	}
+	createVideoLocationsForVideos(t, gdb, video)
+
+	var before models.Video
+	if err := gdb.First(&before, video.ID).Error; err != nil {
+		t.Fatalf("load video before play: %v", err)
+	}
+	if before.PlayCount != 0 || before.LastPlayedAt != nil {
+		t.Fatalf("unplayed video = %+v, want zero play count and nil last_played_at", before)
+	}
+
+	if err := IncrementVideoPlayCount(ctx, video.ID); err != nil {
+		t.Fatalf("IncrementVideoPlayCount: %v", err)
+	}
+
+	var after models.Video
+	if err := gdb.First(&after, video.ID).Error; err != nil {
+		t.Fatalf("load video after play: %v", err)
+	}
+	if after.PlayCount != 1 {
+		t.Fatalf("play_count = %d, want 1", after.PlayCount)
+	}
+	if after.LastPlayedAt == nil {
+		t.Fatal("last_played_at was not recorded")
+	}
+	if !after.UpdatedAt.Equal(before.UpdatedAt) {
+		t.Fatalf("updated_at changed on play: got %v want %v", after.UpdatedAt, before.UpdatedAt)
+	}
+}
+
 type legacyVideoForMigration struct {
 	ID          int64  `gorm:"primaryKey"`
 	DirectoryID int64  `gorm:"index;not null"`
@@ -664,7 +706,7 @@ func assertVideoContentSchema(t *testing.T, db *gorm.DB) {
 		t.Fatalf("iterate video columns: %v", err)
 	}
 
-	wantColumns := []string{"id", "size", "fingerprint", "duration_sec", "play_count", "created_at", "updated_at", "jav_scrape_override", "cover_screenshot_name"}
+	wantColumns := []string{"id", "size", "fingerprint", "duration_sec", "play_count", "created_at", "updated_at", "jav_scrape_override", "cover_screenshot_name", "last_played_at"}
 	if len(columns) != len(wantColumns) {
 		t.Fatalf("unexpected video columns: got %#v want %v", columns, wantColumns)
 	}

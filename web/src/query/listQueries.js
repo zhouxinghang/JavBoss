@@ -37,7 +37,8 @@ export function javQuery(state) {
     favoriteRatingEnabled: state.javFavoriteRatingEnabled,
     favoriteRatingMin: state.javFavoriteRatingMin,
     favoriteRatingMax: state.javFavoriteRatingMax,
-    favoriteGroupId: state.javFavoriteGroupId,
+    favoriteGroupId: state.javTab === 'list' ? state.javFavoriteGroupId : null,
+    watchedOnly: state.javTab === 'recent',
     sort: resolveJavSort(state).sort,
     seed: state.javRandomMode ? state.javRandomSeed : null,
   }

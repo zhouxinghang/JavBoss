@@ -27,4 +27,13 @@ test('JAV list URL state round-trips the original directory filter', async (t) =
   const otherTab = parseUrlState('?view=jav&tab=idol&directory_ids=3')
   assert.deepEqual(otherTab.jav.directoryIds, [3])
   assert.doesNotMatch(buildUrlFromState({ ...otherTab, view: 'jav' }, '/'), /directory_ids/)
+
+  const recent = parseUrlState('?view=jav&tab=recent&temp_sort=last_played&page=3')
+  assert.equal(recent.jav.tab, 'recent')
+  assert.equal(recent.jav.tempSort, 'last_played')
+  assert.equal(recent.jav.page, 3)
+  const recentUrl = buildUrlFromState({ ...recent, view: 'jav' }, '/')
+  assert.match(recentUrl, /tab=recent/)
+  assert.match(recentUrl, /temp_sort=last_played/)
+  assert.match(recentUrl, /page=3/)
 })

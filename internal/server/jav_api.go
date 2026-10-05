@@ -100,6 +100,7 @@ func searchJav(c *gin.Context) {
 		return
 	}
 	sort := strings.TrimSpace(c.Query("sort"))
+	watchedOnly := queryBool(c, "watched", false)
 	seedParam := strings.TrimSpace(c.Query("seed"))
 	var seed *int64
 	if seedParam != "" {
@@ -118,6 +119,7 @@ func searchJav(c *gin.Context) {
 		FavoriteGroupID:   filterQuery.FavoriteGroupID,
 		FavoriteRatingMin: filterQuery.FavoriteRatingMin,
 		FavoriteRatingMax: filterQuery.FavoriteRatingMax,
+		WatchedOnly:       watchedOnly,
 	})
 	if err != nil {
 		logging.Error("SearchJav: %v", err)

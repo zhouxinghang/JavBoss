@@ -86,9 +86,11 @@ export default function useSectionNavigation({
           ? 'studio'
           : tab === 'series'
             ? 'series'
-            : tab === 'download'
-              ? 'download'
-              : 'list'
+            : tab === 'recent'
+              ? 'recent'
+              : tab === 'download'
+                ? 'download'
+                : 'list'
     const shouldResetRandomList = nextTab === 'list' && javRandomMode
     const shouldClearSearch = nextTab === 'list' || nextTab !== javTab || shouldResetRandomList
     const nextRandomMode = nextTab === 'list' && !shouldResetRandomList ? javRandomMode : false
@@ -143,9 +145,11 @@ export default function useSectionNavigation({
           ? 'studio'
           : tab === 'series'
             ? 'series'
-            : tab === 'download'
-              ? 'download'
-              : 'list'
+            : tab === 'recent'
+              ? 'recent'
+              : tab === 'download'
+                ? 'download'
+                : 'list'
     if (isJavMode && nextTab === javTab) return
     handleSwitchJavTab(nextTab)
   }

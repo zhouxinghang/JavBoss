@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
-import { createVideoScreenshot, fetchPlaybackInfo } from '@/features/video/api'
+import {
+  createVideoScreenshot,
+  fetchPlaybackInfo,
+  incrementVideoPlayCount,
+} from '@/features/video/api'
 import { getVideoDisplayName } from '@/utils/display'
 import {
   PLAYER_HOTKEY_ACTIONS,
@@ -147,6 +151,17 @@ export default function PlayerModal({
     })
 
     playerRef.current = player
+
+    // Record one watch per player session so the recently watched list reflects browser playback.
+    let playCounted = false
+    const handlePlaying = () => {
+      if (playCounted || !video?.id) return
+      playCounted = true
+      incrementVideoPlayCount(video.id).catch((err) => {
+        console.error(zh('更新播放次数失败', 'Failed to update play count'), err)
+      })
+    }
+    player.on('playing', handlePlaying)
 
     const playerEl = player.el()
     const savedVolume = (() => {
@@ -296,6 +311,7 @@ export default function PlayerModal({
       window.removeEventListener('keydown', handleKeyDown, true)
       player.off('fullscreenchange', focusPlayer)
       player.off('volumechange', handleVolumeChange)
+      player.off('playing', handlePlaying)
       player.dispose()
       playerRef.current = null
     }
