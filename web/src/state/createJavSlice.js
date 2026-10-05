@@ -245,6 +245,8 @@ export function createJavSlice({ set, get, lists }) {
     },
     loadJavs: lists.jav.load,
     loadMoreJavs: lists.jav.loadMore,
+    prefetchJavs: lists.jav.prefetchNext,
+    prefetchPreviousJavs: lists.jav.prefetchPrev,
     loadJavRandom: async (seed) => {
       const nextSeed = normalizeSeed(seed) ?? generateSeed()
       set({ javTempSort: '', javRandomMode: true, javRandomSeed: nextSeed, javPage: 1 })

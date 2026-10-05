@@ -68,6 +68,9 @@ export const seriesQuery = (state) => ({
   favoriteGroupId: state.seriesFavoriteGroupId,
 })
 
+// Request identity for a list. `createListResource` rebuilds the same
+// `[scope, params]` shape from `directoryScopeKey` + `query`, so a prefetched
+// page key matches the query key a route subscribes to.
 export const listQueryKey = (query, state) =>
   JSON.stringify([directoryScopeKey(state), query(state)])
 export const videoQueryKey = (state) => listQueryKey(videoQuery, state)

@@ -59,9 +59,15 @@ export function createCatalogSlice({ set, lists }) {
     setSeriesPage: (p) => set({ seriesPage: p }),
     loadJavIdols: lists.idol.load,
     loadMoreJavIdols: lists.idol.loadMore,
+    prefetchJavIdols: lists.idol.prefetchNext,
+    prefetchPreviousJavIdols: lists.idol.prefetchPrev,
     loadJavStudios: lists.studio.load,
     loadMoreJavStudios: lists.studio.loadMore,
+    prefetchJavStudios: lists.studio.prefetchNext,
+    prefetchPreviousJavStudios: lists.studio.prefetchPrev,
     loadJavSeries: lists.series.load,
     loadMoreJavSeries: lists.series.loadMore,
+    prefetchJavSeries: lists.series.prefetchNext,
+    prefetchPreviousJavSeries: lists.series.prefetchPrev,
   }
 }

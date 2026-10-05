@@ -108,6 +108,8 @@ export function createVideoSlice({ set, get, lists }) {
     clearRandomMode: () => set({ randomMode: false, randomSeed: null }),
     loadVideos: lists.video.load,
     loadMoreVideos: lists.video.loadMore,
+    prefetchVideos: lists.video.prefetchNext,
+    prefetchPreviousVideos: lists.video.prefetchPrev,
     goToLastPage: async () => {
       const queryKey = videoQueryKey(get())
       if (!get().total) await lists.video.load({ force: true })

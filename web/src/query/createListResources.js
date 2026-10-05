@@ -5,7 +5,7 @@ import {
   idolQuery,
   studioQuery,
   seriesQuery,
-  listQueryKey,
+  directoryScopeKey,
 } from '@/query/listQueries'
 import { fetchVideos } from '@/features/video/api'
 import { fetchJavs, fetchJavIdols, fetchJavStudios, fetchJavSeries } from '@/features/jav/api'
@@ -50,7 +50,9 @@ export function createListResources({ get, set }) {
           loadingMore: `${name}LoadingMore`,
           error: `${name}Error`,
         },
-        key: (state) => listQueryKey(definition.query, state),
+        // `scope` mirrors `listQueryKey` so request identity and prefetched
+        // page keys stay in sync with the query keys routes subscribe to.
+        scope: directoryScopeKey,
         ...definition,
       }),
     ])

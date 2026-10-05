@@ -3,6 +3,7 @@ import { useStore } from '@/store'
 import { useShallow } from 'zustand/react/shallow'
 import { useCallback, useEffect } from 'react'
 import VideoView from '@/features/video/components/VideoView'
+import useListPrefetch from '@/query/useListPrefetch'
 
 export default function VideoRoute({
   hydrated,
@@ -51,6 +52,8 @@ export default function VideoRoute({
     toggleSelectVideo,
     loadMoreVideos,
     videoLoadingMore,
+    prefetchVideos,
+    prefetchPreviousVideos,
   } = useStore(
     useShallow((state) => ({
       page: state.page,
@@ -71,6 +74,8 @@ export default function VideoRoute({
       toggleSelectVideo: state.toggleSelectVideo,
       loadMoreVideos: state.loadMoreVideos,
       videoLoadingMore: state.videoLoadingMore,
+      prefetchVideos: state.prefetchVideos,
+      prefetchPreviousVideos: state.prefetchPreviousVideos,
     }))
   )
   const requestKey = useStore(videoQueryKey)
@@ -86,6 +91,16 @@ export default function VideoRoute({
   )
   const videoWaterfallHasMore =
     !randomMode && (page - 1) * pageSize + (videos?.length || 0) < (total || 0)
+  const activeWaterfallMode = waterfallModes.video && !randomMode
+  useListPrefetch({
+    enabled: hydrated && configLoaded && !loading && !randomMode,
+    requestKey,
+    itemCount: videos?.length || 0,
+    hasNext: activeWaterfallMode ? videoWaterfallHasMore : canNext,
+    hasPrev: !activeWaterfallMode && canPrev,
+    prefetchNext: prefetchVideos,
+    prefetchPrev: prefetchPreviousVideos,
+  })
   useEffect(() => {
     if (hydrated && configLoaded) loadVideos()
   }, [hydrated, configLoaded, requestKey, loadVideos])

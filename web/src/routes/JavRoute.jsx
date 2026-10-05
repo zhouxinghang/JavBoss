@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { resolveJavSort, IDOL_FAVORITE_ORDER_SORT } from '@/constants/jav'
 import { useEffect } from 'react'
 import JavTabs from '@/features/jav/components/JavTabs'
+import useListPrefetch from '@/query/useListPrefetch'
 
 export default function JavRoute({
   hydrated,
@@ -88,6 +89,14 @@ export default function JavRoute({
     setJavCompactMode,
     loadMoreJavs,
     javLoadingMore,
+    prefetchJavIdols,
+    prefetchPreviousJavIdols,
+    prefetchJavStudios,
+    prefetchPreviousJavStudios,
+    prefetchJavSeries,
+    prefetchPreviousJavSeries,
+    prefetchJavs,
+    prefetchPreviousJavs,
   } = useStore(
     useShallow((state) => ({
       javSearchTerm: state.javSearchTerm,
@@ -155,6 +164,14 @@ export default function JavRoute({
       setJavCompactMode: state.setJavCompactMode,
       loadMoreJavs: state.loadMoreJavs,
       javLoadingMore: state.javLoadingMore,
+      prefetchJavIdols: state.prefetchJavIdols,
+      prefetchPreviousJavIdols: state.prefetchPreviousJavIdols,
+      prefetchJavStudios: state.prefetchJavStudios,
+      prefetchPreviousJavStudios: state.prefetchPreviousJavStudios,
+      prefetchJavSeries: state.prefetchJavSeries,
+      prefetchPreviousJavSeries: state.prefetchPreviousJavSeries,
+      prefetchJavs: state.prefetchJavs,
+      prefetchPreviousJavs: state.prefetchPreviousJavs,
     }))
   )
   const requestKey = useStore((state) =>
@@ -209,6 +226,47 @@ export default function JavRoute({
           : javTab === 'series'
             ? seriesLoading
             : javLoading
+  const idolKey = useStore(idolQueryKey)
+  const studioKey = useStore(studioQueryKey)
+  const seriesKey = useStore(seriesQueryKey)
+  const javListKey = useStore(javQueryKey)
+  const ready = hydrated && configLoaded
+  useListPrefetch({
+    enabled: ready && javTab === 'idol' && !idolLoading,
+    requestKey: idolKey,
+    itemCount: idolItems?.length || 0,
+    hasNext: waterfallModes.idol ? idolWaterfallHasMore : idolHasNext,
+    hasPrev: !waterfallModes.idol && idolHasPrev,
+    prefetchNext: prefetchJavIdols,
+    prefetchPrev: prefetchPreviousJavIdols,
+  })
+  useListPrefetch({
+    enabled: ready && javTab === 'studio' && !studioLoading,
+    requestKey: studioKey,
+    itemCount: studioItems?.length || 0,
+    hasNext: waterfallModes.studio ? studioWaterfallHasMore : studioHasNext,
+    hasPrev: !waterfallModes.studio && studioHasPrev,
+    prefetchNext: prefetchJavStudios,
+    prefetchPrev: prefetchPreviousJavStudios,
+  })
+  useListPrefetch({
+    enabled: ready && javTab === 'series' && !seriesLoading,
+    requestKey: seriesKey,
+    itemCount: seriesItems?.length || 0,
+    hasNext: waterfallModes.series ? seriesWaterfallHasMore : seriesHasNext,
+    hasPrev: !waterfallModes.series && seriesHasPrev,
+    prefetchNext: prefetchJavSeries,
+    prefetchPrev: prefetchPreviousJavSeries,
+  })
+  useListPrefetch({
+    enabled: ready && (javTab === 'list' || javTab === 'recent') && !javLoading && !javRandomMode,
+    requestKey: javListKey,
+    itemCount: javItems?.length || 0,
+    hasNext: waterfallModes.jav ? javWaterfallHasMore : javHasNext,
+    hasPrev: !waterfallModes.jav && javHasPrev,
+    prefetchNext: prefetchJavs,
+    prefetchPrev: prefetchPreviousJavs,
+  })
   useEffect(() => {
     if (!hydrated || !configLoaded) return
     if (javTab === 'idol') {

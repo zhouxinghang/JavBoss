@@ -19,7 +19,7 @@ function fixture() {
       loadingMore: 'loadingMore',
       error: 'error',
     },
-    key: (s) => JSON.stringify([s.search, s.scope, s.page, s.limit]),
+    scope: (s) => s.scope,
     query: (s) => ({ search: s.search, limit: s.limit, offset: (s.page - 1) * s.limit }),
     fetcher: (params) =>
       new Promise((resolve, reject) => requests.push({ params, resolve, reject })),
@@ -122,4 +122,216 @@ test('an empty append stops repeated requests even when the server reports an ou
   await more
   await f.loadMore()
   assert.equal(f.requests.length, 2)
+})
+
+test('prefetches the next page so switching to it needs no request', async () => {
+  const f = fixture()
+  const first = f.load()
+  f.requests[0].resolve({ items: [{ id: 1 }, { id: 2 }], total: 6 })
+  await first
+
+  const prefetch = f.prefetchNext()
+  assert.equal(f.requests.length, 2)
+  assert.equal(f.requests[1].params.offset, 2)
+  f.requests[1].resolve({ items: [{ id: 3 }, { id: 4 }], total: 6 })
+  await prefetch
+
+  f.set({ page: 2 })
+  await f.load()
+  assert.equal(f.requests.length, 2)
+  assert.deepEqual(f.get().items, [{ id: 3 }, { id: 4 }])
+  assert.equal(f.get().total, 6)
+})
+
+test('prefetches the previous page for backward navigation', async () => {
+  const f = fixture()
+  f.set({ page: 3 })
+  const first = f.load()
+  f.requests[0].resolve({ items: [{ id: 5 }, { id: 6 }], total: 6 })
+  await first
+
+  const prefetch = f.prefetchPrev()
+  assert.equal(f.requests.length, 2)
+  assert.equal(f.requests[1].params.offset, 2)
+  f.requests[1].resolve({ items: [{ id: 3 }, { id: 4 }], total: 6 })
+  await prefetch
+
+  f.set({ page: 2 })
+  await f.load()
+  assert.equal(f.requests.length, 2)
+  assert.deepEqual(f.get().items, [{ id: 3 }, { id: 4 }])
+})
+
+test('append consumes a prefetched slice instead of requesting it', async () => {
+  const f = fixture()
+  const first = f.load()
+  f.requests[0].resolve({ items: [{ id: 1 }, { id: 2 }], total: 6 })
+  await first
+
+  const prefetch = f.prefetchNext()
+  f.requests[1].resolve({ items: [{ id: 3 }, { id: 4 }], total: 6 })
+  await prefetch
+
+  await f.loadMore()
+  assert.equal(f.requests.length, 2)
+  assert.deepEqual(f.get().items, [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }])
+  assert.equal(f.get().loadingMore, false)
+})
+
+test('a page switch joins an in-flight prefetch instead of duplicating it', async () => {
+  const f = fixture()
+  const first = f.load()
+  f.requests[0].resolve({ items: [{ id: 1 }, { id: 2 }], total: 6 })
+  await first
+
+  const prefetch = f.prefetchNext()
+  f.set({ page: 2 })
+  const next = f.load()
+  assert.equal(f.requests.length, 2)
+  f.requests[1].resolve({ items: [{ id: 3 }, { id: 4 }], total: 6 })
+  await Promise.all([prefetch, next])
+  assert.deepEqual(f.get().items, [{ id: 3 }, { id: 4 }])
+})
+
+test('append joins an in-flight prefetch', async () => {
+  const f = fixture()
+  const first = f.load()
+  f.requests[0].resolve({ items: [{ id: 1 }, { id: 2 }], total: 6 })
+  await first
+
+  const prefetch = f.prefetchNext()
+  const more = f.loadMore()
+  assert.equal(f.requests.length, 2)
+  f.requests[1].resolve({ items: [{ id: 3 }, { id: 4 }], total: 6 })
+  await Promise.all([prefetch, more])
+  assert.deepEqual(f.get().items, [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }])
+  assert.equal(f.get().loadingMore, false)
+})
+
+test('concurrent prefetches share one request', async () => {
+  const f = fixture()
+  const first = f.load()
+  f.requests[0].resolve({ items: [{ id: 1 }, { id: 2 }], total: 6 })
+  await first
+
+  const a = f.prefetchNext()
+  const b = f.prefetchNext()
+  assert.equal(a, b)
+  assert.equal(f.requests.length, 2)
+  f.requests[1].resolve({ items: [{ id: 3 }, { id: 4 }], total: 6 })
+  await a
+})
+
+test('forced loads ignore and clear prefetched pages', async () => {
+  const f = fixture()
+  const first = f.load()
+  f.requests[0].resolve({ items: [{ id: 1 }, { id: 2 }], total: 6 })
+  await first
+
+  const prefetch = f.prefetchNext()
+  f.requests[1].resolve({ items: [{ id: 3 }, { id: 4 }], total: 6 })
+  await prefetch
+
+  f.set({ page: 2 })
+  const forced = f.load({ force: true })
+  assert.equal(f.requests.length, 3)
+  assert.equal(f.requests[2].params.offset, 2)
+  f.requests[2].resolve({ items: [{ id: 30 }], total: 6 })
+  await forced
+  assert.deepEqual(f.get().items, [{ id: 30 }])
+})
+
+test('invalidate drops prefetched pages', async () => {
+  const f = fixture()
+  const first = f.load()
+  f.requests[0].resolve({ items: [{ id: 1 }, { id: 2 }], total: 6 })
+  await first
+
+  const prefetch = f.prefetchNext()
+  f.requests[1].resolve({ items: [{ id: 3 }, { id: 4 }], total: 6 })
+  await prefetch
+
+  f.invalidate()
+  f.set({ page: 2 })
+  const next = f.load()
+  assert.equal(f.requests.length, 3)
+  f.requests[2].resolve({ items: [{ id: 7 }, { id: 8 }], total: 6 })
+  await next
+  assert.deepEqual(f.get().items, [{ id: 7 }, { id: 8 }])
+})
+
+test('a prefetch that settles after invalidation is discarded', async () => {
+  const f = fixture()
+  const first = f.load()
+  f.requests[0].resolve({ items: [{ id: 1 }, { id: 2 }], total: 6 })
+  await first
+
+  const prefetch = f.prefetchNext()
+  f.invalidate()
+  f.requests[1].resolve({ items: [{ id: 3 }, { id: 4 }], total: 6 })
+  await prefetch
+
+  f.set({ page: 2 })
+  const next = f.load()
+  assert.equal(f.requests.length, 3)
+  f.requests[2].resolve({ items: [{ id: 5 }, { id: 6 }], total: 6 })
+  await next
+  assert.deepEqual(f.get().items, [{ id: 5 }, { id: 6 }])
+})
+
+test('prefetching stops at the end of the list', async () => {
+  const f = fixture()
+  const first = f.load()
+  f.requests[0].resolve({ items: [{ id: 1 }, { id: 2 }], total: 2 })
+  await first
+
+  await f.prefetchNext()
+  assert.equal(f.requests.length, 1)
+})
+
+test('prefetching is skipped while the list is loading', async () => {
+  const f = fixture()
+  const first = f.load()
+  await f.prefetchNext()
+  assert.equal(f.requests.length, 1)
+  f.requests[0].resolve({ items: [{ id: 1 }, { id: 2 }], total: 6 })
+  await first
+})
+
+test('prefetching is skipped while an append is in flight', async () => {
+  const f = fixture()
+  const first = f.load()
+  f.requests[0].resolve({ items: [{ id: 1 }, { id: 2 }], total: 6 })
+  await first
+
+  const more = f.loadMore()
+  assert.equal(f.requests.length, 2)
+  await f.prefetchNext()
+  assert.equal(f.requests.length, 2)
+  f.requests[1].resolve({ items: [{ id: 3 }, { id: 4 }], total: 6 })
+  await more
+})
+
+test('prefetch advances to the next slice after an append', async () => {
+  const f = fixture()
+  const first = f.load()
+  f.requests[0].resolve({ items: [{ id: 1 }, { id: 2 }], total: 6 })
+  await first
+
+  const more = f.loadMore()
+  f.requests[1].resolve({ items: [{ id: 3 }, { id: 4 }], total: 6 })
+  await more
+
+  const prefetch = f.prefetchNext()
+  assert.equal(f.requests.length, 3)
+  assert.equal(f.requests[2].params.offset, 4)
+  f.requests[2].resolve({ items: [{ id: 5 }, { id: 6 }], total: 6 })
+  await prefetch
+
+  await f.loadMore()
+  assert.equal(f.requests.length, 3)
+  assert.deepEqual(
+    f.get().items.map((item) => item.id),
+    [1, 2, 3, 4, 5, 6]
+  )
 })
