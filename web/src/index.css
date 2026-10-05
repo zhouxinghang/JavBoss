@@ -31,6 +31,11 @@ body {
   min-height: 100%;
 }
 
+.app-shell {
+  /* The top bar is fixed so it stays pinned while scrolling; reserve its space. */
+  padding-top: var(--topbar-height);
+}
+
 .page-main {
   width: calc(100% - var(--side-tabs-width));
   margin-left: var(--side-tabs-width);
@@ -230,8 +235,8 @@ body.has-page-scroll .sticky-pagination {
 }
 
 .filter-topbar {
-  position: sticky;
-  top: 0;
+  position: fixed;
+  inset: 0 0 auto 0;
   z-index: 40;
   width: 100%;
   border-bottom: 1px solid #e2e8f0;
