@@ -59,6 +59,13 @@ func enrichCensoredSeries(ctx context.Context, lookup func(context.Context, stri
 		if code == "" {
 			continue
 		}
+		if !enrichmentBackoffAllow(enrichJobCensoredSeries, item.ID) {
+			continue
+		}
+		// Definite misses are cached by the lookup layer, so only hard provider
+		// errors justify delaying the next attempt for this item.
+		var hardError bool
+		resolved := false
 		for _, provider := range providers {
 			info, err := provider.lookup(ctx, code)
 			if ctxErr := ctx.Err(); ctxErr != nil {
@@ -67,6 +74,7 @@ func enrichCensoredSeries(ctx context.Context, lookup func(context.Context, stri
 			if err != nil {
 				if !errors.Is(err, jav.ErrNotFound) {
 					logging.Error("lookup jav series failed provider=%s id=%d code=%s err=%v", provider.name, item.ID, code, err)
+					hardError = true
 				}
 				continue
 			}
@@ -84,7 +92,13 @@ func enrichCensoredSeries(ctx context.Context, lookup func(context.Context, stri
 				logging.Info("jav series updated provider=%s id=%d code=%s", provider.name, item.ID, code)
 			}
 			// A valid result either filled the field or an existing value was preserved.
+			resolved = true
 			break
+		}
+		if resolved {
+			enrichmentBackoffSucceed(enrichJobCensoredSeries, item.ID)
+		} else if hardError {
+			enrichmentBackoffFail(enrichJobCensoredSeries, item.ID)
 		}
 	}
 	return nil

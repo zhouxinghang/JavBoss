@@ -35,6 +35,9 @@ func EnrichIdolProfiles(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		if !enrichmentBackoffAllow(enrichJobIdolProfile, idol.ID) {
+			continue
+		}
 		lookupName := strings.TrimSpace(idol.JapaneseName)
 		if lookupName == "" {
 			lookupName = strings.TrimSpace(idol.Name)
@@ -71,18 +74,27 @@ func EnrichIdolProfiles(ctx context.Context) error {
 		avWikiInfo = lookupResults[0].info
 		javDatabaseInfo = lookupResults[1].info
 		javModelInfo = lookupResults[2].info
+		// Definite misses are cached by the lookup layer, so only hard errors
+		// justify delaying the next attempt for this idol.
+		hardError := false
 		if lookupErr := lookupResults[0].err; lookupErr != nil && !errors.Is(lookupErr, jav.ErrNotFound) {
 			logging.Error("lookup actress (avwiki) failed idol=%d name=%s err=%v", idol.ID, lookupName, lookupErr)
+			hardError = true
 		}
 		if lookupErr := lookupResults[1].err; lookupErr != nil && !errors.Is(lookupErr, jav.ErrNotFound) {
 			logging.Error("lookup actress (javdatabase) failed idol=%s code=%s err=%v", idol.Name, code, lookupErr)
+			hardError = true
 		}
 		if lookupErr := lookupResults[2].err; lookupErr != nil && !errors.Is(lookupErr, jav.ErrNotFound) {
 			logging.Error("lookup actress (javmodel) failed idol=%d name=%s err=%v", idol.ID, lookupName, lookupErr)
+			hardError = true
 		}
 
 		info := mergeActressInfosByPriority(avWikiInfo, javDatabaseInfo, javModelInfo)
 		if info == nil {
+			if hardError {
+				enrichmentBackoffFail(enrichJobIdolProfile, idol.ID)
+			}
 			continue
 		}
 		if info.ChineseName != "" {
@@ -91,8 +103,10 @@ func EnrichIdolProfiles(ctx context.Context) error {
 		updated, err := db.UpdateIdolProfile(ctx, idol.ID, info)
 		if err != nil {
 			logging.Error("update idol profile failed idol=%d name=%s err=%v", idol.ID, idol.Name, err)
+			enrichmentBackoffFail(enrichJobIdolProfile, idol.ID)
 			continue
 		}
+		enrichmentBackoffSucceed(enrichJobIdolProfile, idol.ID)
 		if updated {
 			logging.Info("idol profile updated idol=%d name=%s code=%s", idol.ID, idol.Name, code)
 		}

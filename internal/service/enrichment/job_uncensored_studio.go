@@ -37,8 +37,17 @@ func enrichUncensoredStudios(ctx context.Context, lookup func(context.Context, s
 		if (item.IsUncensored != nil && *item.IsUncensored) != true {
 			continue
 		}
-		if err := enrichJavStudio(ctx, item, []jav.Provider{jav.ProviderAvsox, jav.ProviderJavDBAPI, jav.ProviderJavBus}, lookup); err != nil {
+		if !enrichmentBackoffAllow(enrichJobUncensoredStudio, item.ID) {
+			continue
+		}
+		hardError, err := enrichJavStudio(ctx, item, []jav.Provider{jav.ProviderAvsox, jav.ProviderJavDBAPI, jav.ProviderJavBus}, lookup)
+		if err != nil {
 			return err
+		}
+		if hardError {
+			enrichmentBackoffFail(enrichJobUncensoredStudio, item.ID)
+		} else {
+			enrichmentBackoffSucceed(enrichJobUncensoredStudio, item.ID)
 		}
 	}
 	_, err = db.UpdateMissingJavSeriesStudios(ctx)

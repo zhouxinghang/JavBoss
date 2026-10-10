@@ -48,6 +48,9 @@ func (c *metadataLookupCache) Set(string, []byte, time.Time) error {
 
 func openEnrichmentTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
+	// Backoff state is process-global; clear it so tests do not leak scheduling
+	// decisions into each other.
+	enrichmentBackoff.reset()
 	gdb, err := db.Open(filepath.Join(t.TempDir(), "studios.db"))
 	if err != nil {
 		t.Fatal(err)
