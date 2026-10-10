@@ -156,6 +156,7 @@ func (m *CoverManager) handleTask(parent context.Context, code string) error {
 
 	ctx, cancel := context.WithTimeout(parent, 45*time.Second)
 	defer cancel()
+	ctx = logging.WithTask(ctx, "cover download")
 
 	if err := m.downloadCoverFromProviders(ctx, code); err != nil {
 		if errors.Is(err, errCoverNotFound) {

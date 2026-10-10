@@ -76,7 +76,7 @@ func (p *JavDBAPIClient) get(ctx context.Context, path string, params url.Values
 	p.init()
 	started := time.Now()
 	status, responseBytes := 0, 0
-	logging.Info("javdb-api request: url=%s%s code=%q", p.baseURL, path, params.Get("q"))
+	logging.Info("javdb-api request:%s url=%s%s code=%q", logging.TaskField(ctx), p.baseURL, path, params.Get("q"))
 	defer func() {
 		if err != nil && !errors.Is(err, metadata.ErrNotFound) {
 			// url.Error includes the full query (including device_uuid); log only its cause.
@@ -85,10 +85,10 @@ func (p *JavDBAPIClient) get(ctx context.Context, path string, params url.Values
 			if errors.As(err, &requestErr) {
 				logErr = requestErr.Err
 			}
-			logging.Error("javdb-api request failed: path=%s status=%d bytes=%d elapsed=%s err=%v", path, status, responseBytes, time.Since(started).Round(time.Millisecond), logErr)
+			logging.Error("javdb-api request failed:%s path=%s status=%d bytes=%d elapsed=%s err=%v", logging.TaskField(ctx), path, status, responseBytes, time.Since(started).Round(time.Millisecond), logErr)
 			return
 		}
-		logging.Info("javdb-api response: path=%s status=%d bytes=%d elapsed=%s", path, status, responseBytes, time.Since(started).Round(time.Millisecond))
+		logging.Info("javdb-api response:%s path=%s status=%d bytes=%d elapsed=%s", logging.TaskField(ctx), path, status, responseBytes, time.Since(started).Round(time.Millisecond))
 	}()
 	resp, err := p.request(ctx, path, params)
 	if err != nil {
@@ -211,10 +211,10 @@ func (p *JavDBAPIClient) movieByCode(ctx context.Context, code string) (*javDBAP
 	}
 	id, err := resolveJavDBAPIMovieID(movies, code)
 	if err != nil {
-		logging.Info("javdb-api search unmatched: code=%q candidates=%d err=%v", code, len(movies), err)
+		logging.Info("javdb-api search unmatched:%s code=%q candidates=%d err=%v", logging.TaskField(ctx), code, len(movies), err)
 		return nil, err
 	}
-	logging.Info("javdb-api search matched: code=%q movie_id=%s candidates=%d", code, id, len(movies))
+	logging.Info("javdb-api search matched:%s code=%q movie_id=%s candidates=%d", logging.TaskField(ctx), code, id, len(movies))
 	var data json.RawMessage
 	if err := p.get(ctx, "/api/v4/movies/"+url.PathEscape(id), nil, &data); err != nil {
 		return nil, err
@@ -233,7 +233,7 @@ func (p *JavDBAPIClient) movieByCode(ctx context.Context, code string) (*javDBAP
 		return nil, fmt.Errorf("javdb-api: decode movie: %w", err)
 	}
 	if !strings.EqualFold(javDBAPIQueryCode(movie.Number), code) || movie.metadataTitle() == "" {
-		logging.Error("javdb-api invalid detail: code=%q movie_id=%s returned_code=%q has_title=%t", code, id, movie.Number, movie.metadataTitle() != "")
+		logging.Error("javdb-api invalid detail:%s code=%q movie_id=%s returned_code=%q has_title=%t", logging.TaskField(ctx), code, id, movie.Number, movie.metadataTitle() != "")
 		return nil, fmt.Errorf("javdb-api: invalid or mismatched movie detail")
 	}
 	return &movie, nil

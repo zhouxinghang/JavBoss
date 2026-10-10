@@ -11,6 +11,7 @@ type periodicJob func(context.Context) error
 
 func startPeriodicJob(ctx context.Context, interval time.Duration, name string, run periodicJob) {
 	go func() {
+		ctx := logging.WithTask(ctx, name+" enrichment")
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {

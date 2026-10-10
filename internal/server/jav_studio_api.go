@@ -223,7 +223,7 @@ func getJavSeriesJavDBURL(c *gin.Context) {
 		if code == "" {
 			continue
 		}
-		seriesURL, err := jav.LookupSeriesURLByCode(c.Request.Context(), code, jav.ProviderJavDB)
+		seriesURL, err := jav.LookupSeriesURLByCode(logging.WithTask(c.Request.Context(), "javdb series url"), code, jav.ProviderJavDB)
 		if err == nil && strings.TrimSpace(seriesURL) != "" {
 			c.JSON(http.StatusOK, gin.H{"url": seriesURL})
 			return
@@ -263,7 +263,7 @@ func getJavStudioJavDBURL(c *gin.Context) {
 		if code == "" {
 			continue
 		}
-		studioURL, err := jav.LookupStudioURLByCode(c.Request.Context(), code, jav.ProviderJavDB)
+		studioURL, err := jav.LookupStudioURLByCode(logging.WithTask(c.Request.Context(), "javdb studio url"), code, jav.ProviderJavDB)
 		if err == nil && strings.TrimSpace(studioURL) != "" {
 			c.JSON(http.StatusOK, gin.H{"url": studioURL})
 			return

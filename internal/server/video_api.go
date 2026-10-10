@@ -836,7 +836,8 @@ func lookupVideoJavScrapeByProvider(c *gin.Context, provider jav.Provider) {
 	}
 
 	providerLabel := videoJavScrapeLookupProviderLabel(provider)
-	info, err := jav.LookupJavByCode(c.Request.Context(), code, provider)
+	ctx := logging.WithTask(c.Request.Context(), "video jav scrape")
+	info, err := jav.LookupJavByCode(ctx, code, provider)
 	if err != nil {
 		if errors.Is(err, jav.ErrNotFound) {
 			respondLocalizedError(

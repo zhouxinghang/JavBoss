@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"javboss/internal/common/logging"
 	"javboss/internal/jav"
 )
 
@@ -19,7 +20,7 @@ func checkProviderAvailability(c *gin.Context) {
 		respondLocalizedError(c, http.StatusBadRequest, "数据源无效", "Invalid provider")
 		return
 	}
-	result, err := jav.CheckAvailability(c.Request.Context(), jav.ParseProvider(id))
+	result, err := jav.CheckAvailability(logging.WithTask(c.Request.Context(), "provider availability check"), jav.ParseProvider(id))
 	if err != nil {
 		respondLocalizedError(c, http.StatusBadRequest, "该数据源不支持可用性检测", "Availability checks are not supported for this provider")
 		return

@@ -266,7 +266,7 @@ func resolveJavSampleImages(c *gin.Context) {
 	}
 
 	images, lookupErr := lookupJavSampleImagesByProvider(
-		c.Request.Context(),
+		logging.WithTask(c.Request.Context(), "jav sample images"),
 		item.Code,
 		jav.LookupJavByCode,
 		validateJavSampleImageDetailURL,

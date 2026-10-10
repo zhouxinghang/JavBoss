@@ -367,7 +367,7 @@ func getJavIdolJavDBURL(c *gin.Context) {
 		return
 	}
 
-	profileURL, err := jav.LookupActressURLByCodeAndName(c.Request.Context(), code, name, jav.ProviderJavDB)
+	profileURL, err := jav.LookupActressURLByCodeAndName(logging.WithTask(c.Request.Context(), "javdb idol url"), code, name, jav.ProviderJavDB)
 	if err != nil {
 		if errors.Is(err, jav.ErrNotFound) {
 			respondLocalizedError(c, http.StatusNotFound, "未找到对应的 JavDB 女优页面", "JavDB idol page was not found")

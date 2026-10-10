@@ -12,6 +12,7 @@ import (
 
 	"github.com/urfave/cli/v3"
 
+	"javboss/internal/common/logging"
 	"javboss/internal/jav"
 )
 
@@ -28,6 +29,7 @@ func main() {
 }
 
 func (cmd command) run(ctx context.Context, args []string, in io.Reader, out, errOut io.Writer) error {
+	ctx = logging.WithTask(ctx, "javprovider cli")
 	var provider providerOption
 	method, err := cmd.findMethod("LookupJavByCode")
 	if err != nil {

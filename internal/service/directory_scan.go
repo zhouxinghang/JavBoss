@@ -96,6 +96,7 @@ func ScanDirectory(ctx context.Context, directory models.Directory) (*Summary, e
 	}
 	defer finish()
 
+	scanCtx = logging.WithTask(scanCtx, "directory scan")
 	javLinks := newJavLinkBatch(scanCtx)
 	summary, err := runDirectoryScanWithSession(scanCtx, directory, javLinks)
 	return summary, err
@@ -181,6 +182,7 @@ func StartManualDirectoryScan(directory models.Directory, force bool) error {
 	if err != nil {
 		return err
 	}
+	scanCtx = logging.WithTask(scanCtx, "manual directory scan")
 	if force {
 		scanCtx = util.WithForceScrape(scanCtx)
 		logging.Info("manual directory scan force refresh: id=%d path=%s", directory.ID, directory.Path)
