@@ -214,10 +214,10 @@ func main() {
 		case <-timer.C:
 			service.StartAutomaticDirectoryScanScheduler(ctx, 30*time.Second)
 			service.StartDownloadManager(ctx)
-			enrichment.StartCensoredStudioEnrichment(ctx, time.Minute)
+			// enrichment.StartCensoredStudioEnrichment(ctx, time.Minute)
 			// enrichment.StartCensoredSeriesEnrichment(ctx, time.Minute)
 			enrichment.StartCensoredIdolEnrichment(ctx, time.Minute)
-			enrichment.StartUncensoredStudioEnrichment(ctx, time.Minute)
+			// enrichment.StartUncensoredStudioEnrichment(ctx, time.Minute)
 			// enrichment.StartUncensoredSeriesEnrichment(ctx, time.Minute)
 			enrichment.StartUncensoredIdolEnrichment(ctx, time.Minute)
 			enrichment.StartIdolProfileEnrichment(ctx, time.Minute)
