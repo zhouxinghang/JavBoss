@@ -5,6 +5,7 @@ import { resolveJavSort } from '@/constants/jav'
 import { useStore } from '@/store'
 import { getErrorMessage } from '@/utils/errors'
 import { zh } from '@/utils/i18n'
+import { getJavDisplayTitle } from '@/utils/jav'
 import { collectJavVideos, fetchAllJavItems, javBulkQuery } from '@/utils/javSelection'
 
 export default function useJavSelection({
@@ -42,7 +43,7 @@ export default function useJavSelection({
     id: Number(item.id),
     jav_id: Number(item.id),
     jav_code: item.code,
-    label: item.title || item.code || `#${item.id}`,
+    label: getJavDisplayTitle(item),
   }))
 
   const runAction = async (name, callback) => {

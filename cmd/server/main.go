@@ -221,6 +221,7 @@ func main() {
 			// enrichment.StartUncensoredSeriesEnrichment(ctx, time.Minute)
 			enrichment.StartUncensoredIdolEnrichment(ctx, time.Minute)
 			enrichment.StartIdolProfileEnrichment(ctx, time.Minute)
+			enrichment.StartTitleTranslationEnrichment(ctx, time.Minute)
 		}
 	}()
 

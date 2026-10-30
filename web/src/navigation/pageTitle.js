@@ -32,7 +32,7 @@ export function buildLibraryPageTitle({
 
 export function buildJavDetailPageTitle(item) {
   const code = String(item?.code || '').trim()
-  const title = String(item?.title || '').trim()
+  const title = String(item?.zh_title || '').trim() || String(item?.title || '').trim()
   return formatPageTitle(
     [...new Set([code, title].filter(Boolean))].join(' ') || zh('JAV 详情', 'JAV details')
   )

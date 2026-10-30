@@ -72,6 +72,7 @@ func RegisterRoutes(router gin.IRoutes) {
 	router.POST("/videos/tags/replace", replaceTagsForVideos)
 
 	router.GET("/jav", searchJav)
+	router.POST("/jav/title-translations", createJavTitleTranslation)
 	router.GET("/jav/providers", listAvailabilityProviders)
 	router.POST("/jav/providers/:provider/availability", checkProviderAvailability)
 	router.POST("/jav/providers/:provider/connectivity", checkProviderAvailability) // Legacy route, same availability check.

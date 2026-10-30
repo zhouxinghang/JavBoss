@@ -8,6 +8,12 @@ import {
   normalizeJavSortRules,
 } from '@/constants/jav'
 
+export async function saveTitleTranslationSettings(payload) {
+  const config = await updateConfig(payload)
+  useStore.setState({ config })
+  return config
+}
+
 export async function saveVideoSettings(draft, onWaterfallChange) {
   const { videoPageSizeInput, videoSortInput, videoHideJavInput, videoWaterfallDefaultInput } =
     draft

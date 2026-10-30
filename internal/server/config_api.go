@@ -15,6 +15,7 @@ import (
 
 	"javboss/internal/common/logging"
 	dbpkg "javboss/internal/db"
+	"javboss/internal/deepseek"
 	"javboss/internal/jav"
 	"javboss/internal/mpv"
 	"javboss/internal/runtimeconfig"
@@ -129,6 +130,9 @@ func updateConfig(c *gin.Context) {
 		BrowserShowHotkeyHint  *bool                 `json:"browser_player_show_hotkey_hint"`
 		PlayerHotkeys          []playerHotkeyPayload `json:"player_hotkeys"`
 		WebHotkeys             []webHotkeyPayload    `json:"web_hotkeys"`
+		DeepSeekAPIKey         *string               `json:"deepseek_api_key"`
+		DeepSeekModel          *string               `json:"deepseek_model"`
+		DeepSeekAutoTranslate  *bool                 `json:"deepseek_auto_translate"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		respondLocalizedError(c, http.StatusBadRequest, "配置请求无效", "Invalid configuration request")
@@ -136,6 +140,28 @@ func updateConfig(c *gin.Context) {
 	}
 
 	entries := make(map[string]string)
+	if req.DeepSeekAPIKey != nil {
+		key := strings.TrimSpace(*req.DeepSeekAPIKey)
+		if len(key) > 512 || strings.ContainsFunc(key, func(r rune) bool { return r <= 32 || r >= 127 }) {
+			respondLocalizedError(c, http.StatusBadRequest, "DeepSeek API Key 格式无效", "Invalid DeepSeek API key")
+			return
+		}
+		entries["deepseek_api_key"] = key
+	}
+	if req.DeepSeekModel != nil {
+		model := strings.TrimSpace(*req.DeepSeekModel)
+		if model == "" {
+			model = deepseek.DefaultModel
+		}
+		if len(model) > 128 || strings.ContainsFunc(model, func(r rune) bool { return r <= 32 || r >= 127 }) {
+			respondLocalizedError(c, http.StatusBadRequest, "DeepSeek 模型名称无效", "Invalid DeepSeek model name")
+			return
+		}
+		entries["deepseek_model"] = model
+	}
+	if req.DeepSeekAutoTranslate != nil {
+		entries["deepseek_auto_translate"] = strconv.FormatBool(*req.DeepSeekAutoTranslate)
+	}
 	clampSize := func(n int) (string, bool) {
 		if n <= 0 {
 			return "", false
@@ -576,6 +602,11 @@ func updateConfig(c *gin.Context) {
 }
 
 func applyRuntimeConfigFields(cfg map[string]string, remoteAddr string) {
+	settings := deepseek.SettingsFromConfig(cfg)
+	cfg["deepseek_api_key_configured"] = strconv.FormatBool(settings.APIKey != "")
+	cfg["deepseek_model"] = settings.Model
+	cfg["deepseek_auto_translate"] = strconv.FormatBool(settings.AutoTranslate)
+	delete(cfg, "deepseek_api_key")
 	cfg["proxy_mode"] = util.ResolveProxyMode(cfg["proxy_mode"], cfg["proxy_port"])
 	remoteRequest := isRemoteRequest(remoteAddr)
 	containerMode := runtimeconfig.ContainerMode()

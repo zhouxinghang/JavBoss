@@ -51,3 +51,38 @@ func TestSaveJavInfoPersistsBothTitles(t *testing.T) {
 		t.Fatalf("API title fields: %s", payload)
 	}
 }
+
+func TestChineseTitlesAreSearchableAndVisibleInFavorites(t *testing.T) {
+	gdb := openTestDB(t)
+	ctx := context.Background()
+	item := models.Jav{Code: "ABC-001", Title: "Original", ZhTitle: "宁静的午后"}
+	if err := gdb.Create(&item).Error; err != nil {
+		t.Fatal(err)
+	}
+	dir := models.Directory{Path: "/tmp/title-translation"}
+	if err := gdb.Create(&dir).Error; err != nil {
+		t.Fatal(err)
+	}
+	video := models.Video{DirectoryID: dir.ID, Path: "test.mp4", Filename: "test.mp4", Fingerprint: "translation", JavID: &item.ID}
+	if err := gdb.Create(&video).Error; err != nil {
+		t.Fatal(err)
+	}
+	createVideoLocationsForVideos(t, gdb, video)
+	for _, search := range []string{"午后", "Original", "ABC-001"} {
+		items, total, err := SearchJav(ctx, nil, nil, search, "", 25, 0, nil, nil)
+		if err != nil || total != 1 || len(items) != 1 || items[0].ZhTitle != item.ZhTitle {
+			t.Fatalf("search=%q total=%d items=%v err=%v", search, total, items, err)
+		}
+	}
+	group := models.JavFavoriteGroup{Name: "Titles", EntityType: JavFavoriteEntityJav}
+	if err := gdb.Create(&group).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AddJavsToFavoriteGroups(ctx, []int64{item.ID}, []int64{group.ID}); err != nil {
+		t.Fatal(err)
+	}
+	favorites, err := ListJavFavoriteGroupItems(ctx, JavFavoriteEntityJav, group.ID, nil)
+	if err != nil || len(favorites) != 1 || favorites[0].Name != "ABC-001 宁静的午后" || favorites[0].Title != item.Title || favorites[0].ZhTitle != item.ZhTitle {
+		t.Fatalf("favorites=%+v err=%v", favorites, err)
+	}
+}

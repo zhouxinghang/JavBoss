@@ -62,6 +62,14 @@ npm run build
 scripts/cli.sh release linux-x86_64 v0.1.0
 ```
 
+## 标题翻译 API
+
+`PATCH /config` 支持 `deepseek_api_key`、`deepseek_model`（默认 `deepseek-flash`）和 `deepseek_auto_translate`（默认关闭）。省略密钥保留已保存值，传空字符串清除。配置响应只包含 `deepseek_api_key_configured` 状态，不返回密钥。
+
+`POST /jav/title-translations` 接收 JSON `{"title":"原始标题"}`，原始标题须为 1–5000 字；成功返回 `{"zh_title":"中文标题"}` 草稿，不写入作品。缺少密钥或标题无效时返回 400，DeepSeek 请求失败、返回无效译文或未完整生成时返回 502。无查询参数。
+
+`PUT /jav/items/:id` 可通过 `zh_title` 保存、修改或清空中文标题。`GET /jav` 的 `search` 同时匹配番号、原始标题和中文标题。自动翻译每分钟处理最多 20 条缺失中文标题的作品，仅在原始标题未变且中文标题仍为空时写入；遇到翻译错误结束本轮，下一轮重试。
+
 ## 通过 CLI 启停 Docker
 
 需要 Node.js/npm、Docker 和 Docker Compose 插件。在仓库根目录执行：

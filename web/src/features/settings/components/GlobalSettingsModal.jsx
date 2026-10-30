@@ -12,6 +12,7 @@ import PlayerSettingsModal from '@/features/settings/components/PlayerSettingsMo
 import WebHotkeySettings from '@/features/settings/components/WebHotkeySettings'
 import ProviderAvailabilityPanel from '@/features/settings/components/ProviderAvailabilityPanel'
 import ResourceDashboard from '@/features/settings/components/ResourceDashboard'
+import TitleTranslationSettings from '@/features/settings/components/TitleTranslationSettings'
 import { downloadFFmpeg, fetchTools } from '@/features/settings/api'
 import { parsePlayerHotkeys } from '@/utils/playerHotkeys'
 import { zh } from '@/utils/i18n'
@@ -37,6 +38,11 @@ const SETTINGS_SECTIONS = [
     id: 'jav-providers',
     title: { zh: 'JAV 数据源', en: 'JAV Providers' },
     summary: { zh: '数据源域名与可用性检测', en: 'Provider domains and availability checks' },
+  },
+  {
+    id: 'title-translation',
+    title: { zh: '标题翻译', en: 'Title Translation' },
+    summary: { zh: 'DeepSeek 中文标题翻译', en: 'Chinese titles with DeepSeek' },
   },
   {
     id: 'tools',
@@ -1469,6 +1475,7 @@ export default function GlobalSettingsModal({
         >
           {currentSection === 'display' && renderDisplayPanel()}
           {currentSection === 'resources' && <ResourceDashboard />}
+          {currentSection === 'title-translation' && <TitleTranslationSettings />}
           {currentSection === 'network' && renderNetworkPanel()}
           {currentSection === 'jav-providers' && (
             <ProviderAvailabilityPanel

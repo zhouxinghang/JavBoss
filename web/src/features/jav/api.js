@@ -251,6 +251,16 @@ export async function updateJavItem(id, payload) {
   return res.json()
 }
 
+export async function translateJavTitle(title) {
+  const res = await apiFetch('/jav/title-translations', {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({ title }),
+  })
+  if (!res.ok) throw await apiError(res)
+  return res.json()
+}
+
 export async function createJavTag(name) {
   const res = await apiFetch('/jav/tags', {
     method: 'POST',

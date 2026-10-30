@@ -29,6 +29,7 @@ import {
   createJavScrapedTag,
   createJavTag,
   updateJavItem,
+  translateJavTitle,
 } from '@/features/jav/api'
 import { getErrorMessage } from '@/utils/errors'
 import { zh } from '@/utils/i18n'
@@ -42,6 +43,8 @@ export function JavEditModal({ open, item, preferChineseName = false, onClose, o
   const loadJavTags = useStore((state) => state.loadJavTags)
   const showSimplifiedTags = useStore((state) => configFlag(state.config?.jav_tag_show_simplified))
   const [title, setTitle] = useState('')
+  const [zhTitle, setZhTitle] = useState('')
+  const [translating, setTranslating] = useState(false)
   const [coverUrl, setCoverUrl] = useState('')
   const [selectedTagIds, setSelectedTagIds] = useState([])
   const [selectedIdolIds, setSelectedIdolIds] = useState([])
@@ -213,6 +216,7 @@ export function JavEditModal({ open, item, preferChineseName = false, onClose, o
     if (!open) return undefined
     let cancelled = false
     setTitle(editableJavTitle(item))
+    setZhTitle(String(item?.zh_title || ''))
     setCoverUrl('')
     setSelectedTagIds(
       Array.isArray(item?.tags)
@@ -394,7 +398,22 @@ export function JavEditModal({ open, item, preferChineseName = false, onClose, o
     }
   }
 
+  const handleTranslate = async () => {
+    if (translating || saving || !title.trim()) return
+    setTranslating(true)
+    setError('')
+    try {
+      const result = await translateJavTitle(title.trim())
+      setZhTitle(result.zh_title)
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setTranslating(false)
+    }
+  }
+
   const handleSave = async () => {
+    if (translating) return
     if (!item?.id) {
       setError(zh('缺少 JAV ID', 'Missing JAV ID'))
       return
@@ -410,6 +429,9 @@ export function JavEditModal({ open, item, preferChineseName = false, onClose, o
     try {
       const payload = {
         title: title.trim(),
+        ...(zhTitle.trim() !== String(item?.zh_title || '').trim()
+          ? { zh_title: zhTitle.trim() }
+          : {}),
         ...(trimmedCoverUrl ? { cover_url: trimmedCoverUrl } : {}),
         tag_ids: selectedTagIds.map((id) => Number(id)).filter(Boolean),
         idol_ids: selectedIdolIds.map((id) => Number(id)).filter(Boolean),
@@ -443,7 +465,7 @@ export function JavEditModal({ open, item, preferChineseName = false, onClose, o
     }
   }
 
-  const creatingOption = creatingIdol || creatingScrapedTag || creatingUserTag
+  const creatingOption = creatingIdol || creatingScrapedTag || creatingUserTag || translating
 
   return (
     <AppModal
@@ -477,7 +499,7 @@ export function JavEditModal({ open, item, preferChineseName = false, onClose, o
             className="block text-[13px] font-semibold text-black"
             htmlFor={`jav-title-${item?.id || 'new'}`}
           >
-            {zh('标题', 'Title')}
+            {zh('原始标题', 'Original title')}
           </label>
           <textarea
             id={`jav-title-${item?.id || 'new'}`}
@@ -488,8 +510,44 @@ export function JavEditModal({ open, item, preferChineseName = false, onClose, o
               if (error) setError('')
             }}
             className="mt-2 w-full resize-y rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            disabled={saving}
+            disabled={saving || translating}
           />
+        </div>
+        <div>
+          <div className="flex items-center justify-between gap-3">
+            <label
+              className="block text-[13px] font-semibold text-black"
+              htmlFor={`jav-zh-title-${item?.id || 'new'}`}
+            >
+              {zh('中文标题', 'Chinese title')}
+            </label>
+            <button
+              type="button"
+              className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+              disabled={saving || translating || !title.trim()}
+              onClick={handleTranslate}
+            >
+              {translating
+                ? zh('翻译中…', 'Translating…')
+                : zh('DeepSeek 翻译', 'Translate with DeepSeek')}
+            </button>
+          </div>
+          <textarea
+            id={`jav-zh-title-${item?.id || 'new'}`}
+            rows={2}
+            value={zhTitle}
+            maxLength={5000}
+            onChange={(event) => setZhTitle(event.target.value)}
+            className="mt-2 w-full resize-y rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            disabled={saving || translating}
+            aria-describedby={`jav-zh-title-hint-${item?.id || 'new'}`}
+          />
+          <p id={`jav-zh-title-hint-${item?.id || 'new'}`} className="mt-1 text-xs text-gray-500">
+            {zh(
+              '保存后优先展示中文标题，留空时展示原始标题。',
+              'The saved Chinese title is shown first; the original title is used when empty.'
+            )}
+          </p>
         </div>
         <div>
           <label
@@ -888,7 +946,11 @@ export function JavEditModal({ open, item, preferChineseName = false, onClose, o
             </div>
           ) : null}
         </div>
-        {error ? <div className="text-sm text-red-600">{error}</div> : null}
+        {error ? (
+          <div role="alert" className="text-sm text-red-600">
+            {error}
+          </div>
+        ) : null}
       </div>
       <div className="flex justify-end gap-2 border-t border-gray-200 p-5">
         <button
