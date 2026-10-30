@@ -1483,6 +1483,9 @@ stop 停止容器，保留容器和数据。
   JAVBOSS_DOCKER_IMAGE     镜像名称（默认 javboss:local）
   JAVBOSS_DOCKER_PORT      宿主机端口（默认 5174）
   JAVBOSS_DOCKER_DATA_DIR  数据目录（默认仓库下 docker-data）
+  JAVBOSS_DOCKER_HUB_MIRROR Docker Hub 镜像源（默认 m.daocloud.io/docker.io）
+  JAVBOSS_DOCKER_GCR_MIRROR GCR 镜像源（默认 m.daocloud.io/gcr.io）
+  JAVBOSS_DOCKERFILE_FRONTEND Dockerfile 前端镜像（默认使用 DaoCloud 镜像站）
   JAVBOSS_DOCKER_UID       容器用户 ID（默认当前用户，必须非 0）
   JAVBOSS_DOCKER_GID       容器组 ID（默认当前用户的主组）`);
     return;

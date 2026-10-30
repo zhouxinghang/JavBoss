@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1.7
 
-FROM --platform=$BUILDPLATFORM node:24-bookworm-slim AS web-build
+ARG DOCKER_HUB_REGISTRY=docker.io
+ARG GCR_REGISTRY=gcr.io
+
+FROM --platform=$BUILDPLATFORM ${DOCKER_HUB_REGISTRY}/library/node:24-bookworm-slim AS web-build
 
 ARG NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
 ENV NPM_CONFIG_REGISTRY=${NPM_CONFIG_REGISTRY}
@@ -11,7 +14,7 @@ RUN --mount=type=cache,target=/root/.npm npm ci --prefer-offline
 COPY web/ ./
 RUN npm run build
 
-FROM golang:1.25-bookworm AS go-build
+FROM ${DOCKER_HUB_REGISTRY}/library/golang:1.25-bookworm AS go-build
 
 ARG GOPROXY=https://goproxy.cn,direct
 ARG GOSUMDB=sum.golang.org
@@ -27,7 +30,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
   --mount=type=cache,target=/root/.cache/go-build \
   go build -trimpath -ldflags="-s -w -X main.buildMode=${BUILD_MODE}" -o /out/javboss ./cmd/server
 
-FROM --platform=$BUILDPLATFORM alpine:3.23 AS ffmpeg-build
+FROM --platform=$BUILDPLATFORM ${DOCKER_HUB_REGISTRY}/library/alpine:3.23 AS ffmpeg-build
 
 ARG TARGETARCH
 ARG FFMPEG_RELEASE=n8.1.2-1
@@ -56,7 +59,7 @@ RUN set -eu; \
   echo "${ffprobe_sha256}  /ffprobe" | sha256sum -c -; \
   chmod 0755 /ffmpeg /ffprobe
 
-FROM gcr.io/distroless/base-debian12:latest@sha256:76b3162a31477bca4a245b836c624f4c4a1a3705e99b9003907d992bec2c4bca
+FROM ${GCR_REGISTRY}/distroless/base-debian12:latest@sha256:76b3162a31477bca4a245b836c624f4c4a1a3705e99b9003907d992bec2c4bca
 
 WORKDIR /app
 COPY --from=ffmpeg-build /ffmpeg ./internal/bin/ffmpeg

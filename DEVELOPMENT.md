@@ -88,6 +88,19 @@ scripts/cli.sh release linux-x86_64 v0.1.0
 
 更多参数可通过 `./scripts/cli.sh docker --help` 查看。
 
+本地 Compose 构建默认使用 [DaoCloud 国内镜像站](https://github.com/DaoCloud/public-image-mirror)拉取 Node、Go、Alpine、distroless 和 Dockerfile 构建前端镜像，无需配置 VPN/HTTP 代理。npm 和 Go 依赖继续使用已有的国内源。
+
+可通过 `JAVBOSS_DOCKER_HUB_MIRROR`、`JAVBOSS_DOCKER_GCR_MIRROR` 和 `JAVBOSS_DOCKERFILE_FRONTEND` 切换镜像站。例如恢复官方镜像源：
+
+```bash
+JAVBOSS_DOCKER_HUB_MIRROR=docker.io \
+JAVBOSS_DOCKER_GCR_MIRROR=gcr.io \
+JAVBOSS_DOCKERFILE_FRONTEND=docker/dockerfile:1.7 \
+./scripts/cli.sh docker start --build-only
+```
+
+镜像标签及 distroless 的固定 SHA256 摘要保持不变。直接执行 `docker build` 或 GitHub Actions 发布仍默认使用官方镜像源；FFmpeg 二进制文件仍从 GitHub Releases 下载。
+
 ## 项目结构
 
 ```text

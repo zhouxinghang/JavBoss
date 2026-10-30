@@ -8,6 +8,9 @@ services:
       context: .
       args:
         BUILD_MODE: development
+        DOCKER_HUB_REGISTRY: ${JAVBOSS_DOCKER_HUB_MIRROR:-m.daocloud.io/docker.io}
+        GCR_REGISTRY: ${JAVBOSS_DOCKER_GCR_MIRROR:-m.daocloud.io/gcr.io}
+        BUILDKIT_SYNTAX: ${JAVBOSS_DOCKERFILE_FRONTEND:-m.daocloud.io/docker.io/docker/dockerfile:1.7}
         NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmmirror.com}
         GOPROXY: ${GOPROXY:-https://goproxy.cn,direct}
         GOSUMDB: ${GOSUMDB:-sum.golang.org}
