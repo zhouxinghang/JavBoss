@@ -3,7 +3,9 @@
 ARG DOCKER_HUB_REGISTRY=docker.io
 ARG GCR_REGISTRY=gcr.io
 
-FROM --platform=$BUILDPLATFORM ${DOCKER_HUB_REGISTRY}/library/node:24-bookworm-slim AS web-build
+# Pin image indexes so upstream tag updates do not invalidate cached builds.
+# Update the digests explicitly when upgrading the base images.
+FROM --platform=$BUILDPLATFORM ${DOCKER_HUB_REGISTRY}/library/node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS web-build
 
 ARG NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
 ENV NPM_CONFIG_REGISTRY=${NPM_CONFIG_REGISTRY}
@@ -14,7 +16,7 @@ RUN --mount=type=cache,target=/root/.npm npm ci --prefer-offline
 COPY web/ ./
 RUN npm run build
 
-FROM ${DOCKER_HUB_REGISTRY}/library/golang:1.25-bookworm AS go-build
+FROM ${DOCKER_HUB_REGISTRY}/library/golang:1.25-bookworm@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437 AS go-build
 
 ARG GOPROXY=https://goproxy.cn,direct
 ARG GOSUMDB=sum.golang.org
@@ -25,12 +27,14 @@ ENV GOPROXY=${GOPROXY} \
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
-COPY . .
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+COPY assets/ ./assets/
 RUN --mount=type=cache,target=/go/pkg/mod \
   --mount=type=cache,target=/root/.cache/go-build \
   go build -trimpath -ldflags="-s -w -X main.buildMode=${BUILD_MODE}" -o /out/javboss ./cmd/server
 
-FROM --platform=$BUILDPLATFORM ${DOCKER_HUB_REGISTRY}/library/alpine:3.23 AS ffmpeg-build
+FROM --platform=$BUILDPLATFORM ${DOCKER_HUB_REGISTRY}/library/alpine:3.23@sha256:f3d55900449227ae9e237ede521e7b665d53a253b42065ba90b9db9275e198ad AS ffmpeg-build
 
 ARG TARGETARCH
 ARG FFMPEG_RELEASE=n8.1.2-1

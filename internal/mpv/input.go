@@ -431,6 +431,7 @@ func buildConfigContent() (string, error) {
 	resumePlayback := loadConfiguredPlayerResumePlayback()
 
 	lines := []string{
+		"hwdec=auto",
 		"osc=no",
 		"input-default-bindings=no",
 		"keep-open=yes",
