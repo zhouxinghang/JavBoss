@@ -24,6 +24,10 @@ func TestPlaylistPlaysLocalGrantsAndStartsScreenshotSync(t *testing.T) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
+		if strings.HasSuffix(r.URL.Path, "/subtitle") {
+			_, _ = io.WriteString(w, `{"subtitle":null}`)
+			return
+		}
 		if r.URL.Path == "/videos/42/play" {
 			firstCount.Add(1)
 		}

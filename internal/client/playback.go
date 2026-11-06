@@ -91,11 +91,18 @@ func (c *Client) handlePlay(w http.ResponseWriter, r *http.Request) {
 	}
 	mediaURL := c.localBaseURL + "/__client/media/" + token
 	dataDir := c.clientDataDir()
+	subtitlePath, err := c.prepareSubtitle(r.Context(), request.VideoID, cookie)
+	if err != nil {
+		logging.Error("prepare client subtitle failed: %v", err)
+		respondJSONError(w, http.StatusBadGateway, "加载远端字幕失败，请重试", "Could not load the remote subtitle; try again")
+		return
+	}
 	if err := c.playVideo(mediaURL, mpv.PlayOptions{
 		DataDir:                dataDir,
 		VideoID:                request.VideoID,
 		StartTimeSec:           request.StartTimeSec,
 		EnableNetworkThumbnail: true,
+		SubtitlePath:           subtitlePath,
 	}); err != nil {
 		logging.Error("client MPV playback failed: %v", err)
 		if strings.Contains(err.Error(), "mpv not found") {

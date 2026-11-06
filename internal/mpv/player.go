@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"javboss/internal/common/logging"
+	"javboss/internal/subtitle"
 )
 
 const playbackScreenshotTemplate = "mpv_%wH-%wM-%wS.%wT"
@@ -33,6 +34,7 @@ type PlayOptions struct {
 	VideoID                int64
 	StartTimeSec           float64
 	EnableNetworkThumbnail bool
+	SubtitlePath           string
 }
 
 // PlaylistItem describes one file in an MPV playlist.
@@ -480,6 +482,13 @@ func buildCommandArgs(path string, options PlayOptions, ipcPath string, startIdl
 		args = append(args, "--osd-playing-msg="+hotkeyHint)
 	}
 	args = append(args, buildPlaybackStartArgs(options)...)
+	if !startIdle {
+		subtitleArgs, err := buildPlaybackSubtitleArgs(options)
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, subtitleArgs...)
+	}
 	args = append(args, "--input-conf="+inputConfPath)
 	if strings.TrimSpace(path) != "" {
 		args = append(args, "--", path)
@@ -599,7 +608,42 @@ func buildPlaylistLoadFileCommand(item PlaylistItem, mode string) ([]any, error)
 	if item.Options.StartTimeSec > 0 {
 		options["start"] = strconv.FormatFloat(item.Options.StartTimeSec, 'f', -1, 64)
 	}
+	subtitlePath, err := playbackSubtitlePath(item.Options)
+	if err != nil {
+		return nil, err
+	}
+	if subtitlePath != "" {
+		// The append action accepts one literal path, including list separators.
+		options["sub-files-append"] = subtitlePath
+		options["sid"] = "auto"
+		options["sub-visibility"] = "yes"
+	}
 	return []any{"loadfile", item.Path, mode, -1, options}, nil
+}
+
+func playbackSubtitlePath(options PlayOptions) (string, error) {
+	if options.SubtitlePath != "" {
+		return options.SubtitlePath, nil
+	}
+	if strings.TrimSpace(options.DataDir) == "" || options.VideoID <= 0 {
+		return "", nil
+	}
+	file, err := subtitle.Load(options.DataDir, options.VideoID)
+	if err != nil {
+		return "", fmt.Errorf("load uploaded subtitle: %w", err)
+	}
+	if file == nil {
+		return "", nil
+	}
+	return file.Path, nil
+}
+
+func buildPlaybackSubtitleArgs(options PlayOptions) ([]string, error) {
+	path, err := playbackSubtitlePath(options)
+	if err != nil || path == "" {
+		return nil, err
+	}
+	return []string{"--sub-file=" + path, "--sid=auto", "--sub-visibility=yes"}, nil
 }
 
 func buildPlaybackScreenshotArgs(options PlayOptions) ([]string, error) {

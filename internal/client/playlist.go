@@ -67,6 +67,12 @@ func (c *Client) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 			title = "Video #" + strconv.FormatInt(item.VideoID, 10)
 		}
 		videoID := item.VideoID
+		subtitlePath, err := c.prepareSubtitle(r.Context(), videoID, cookie)
+		if err != nil {
+			logging.Error("prepare client playlist subtitle failed: %v", err)
+			respondJSONError(w, http.StatusBadGateway, "加载远端字幕失败，请重试", "Could not load the remote subtitle; try again")
+			return
+		}
 		items = append(items, mpv.PlaylistItem{
 			Path:  c.localBaseURL + "/__client/media/" + token,
 			Title: title,
@@ -78,6 +84,7 @@ func (c *Client) handlePlaylist(w http.ResponseWriter, r *http.Request) {
 			Options: mpv.PlayOptions{
 				DataDir: dataDir, VideoID: item.VideoID,
 				StartTimeSec: item.StartTimeSec, EnableNetworkThumbnail: true,
+				SubtitlePath: subtitlePath,
 			},
 		})
 	}

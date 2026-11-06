@@ -108,6 +108,25 @@ export async function fetchVideoScreenshots(id) {
   return Array.isArray(data?.items) ? data.items : []
 }
 
+export async function fetchVideoSubtitle(id, { signal } = {}) {
+  const res = await apiFetch(`/videos/${id}/subtitle`, { cache: 'no-store', signal })
+  if (!res.ok) throw await apiError(res)
+  return (await res.json()).subtitle
+}
+
+export async function uploadVideoSubtitle(id, file) {
+  const body = new FormData()
+  body.append('file', file)
+  const res = await apiFetch(`/videos/${id}/subtitle`, { method: 'PUT', body })
+  if (!res.ok) throw await apiError(res)
+  return (await res.json()).subtitle
+}
+
+export async function deleteVideoSubtitle(id) {
+  const res = await apiFetch(`/videos/${id}/subtitle`, { method: 'DELETE' })
+  if (!res.ok) throw await apiError(res)
+}
+
 export async function fetchVideoScreenshotsByIds(videoIds) {
   const params = new URLSearchParams()
   params.set('video_id_list', (videoIds || []).join(','))

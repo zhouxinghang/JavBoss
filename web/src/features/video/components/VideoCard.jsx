@@ -6,6 +6,8 @@ import LocalOfferOutlinedIcon from '@mui/icons-material/LocalOfferOutlined'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import FolderOpenIcon from '@mui/icons-material/FolderOpen'
 import ManageSearchIcon from '@mui/icons-material/ManageSearch'
+import SubtitlesOutlinedIcon from '@mui/icons-material/SubtitlesOutlined'
+import VideoSubtitleModal from '@/features/video/components/VideoSubtitleModal'
 import { revealVideoLocation } from '@/features/video/api'
 import { useStore } from '@/store'
 import { displayHostPath, hostPathsEnabled } from '@/utils/hostPath'
@@ -38,6 +40,7 @@ function VideoCard({
 }) {
   const useHostPaths = useStore((state) => hostPathsEnabled(state.config))
   const [editAnchorEl, setEditAnchorEl] = useState(null)
+  const [subtitleOpen, setSubtitleOpen] = useState(false)
   const displayName = getVideoDisplayName(video)
   const durationSec = Number(video?.duration_sec)
   const durationMinutes =
@@ -299,6 +302,18 @@ function VideoCard({
             <div className="flex min-w-[112px] flex-col p-1">
               <button
                 type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  closeEditMenu()
+                  setSubtitleOpen(true)
+                }}
+                className="inline-flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
+              >
+                <SubtitlesOutlinedIcon className="h-4 w-4" fontSize="inherit" />
+                <span>{zh('字幕', 'Subtitle')}</span>
+              </button>
+              <button
+                type="button"
                 onClick={handleRename}
                 className="inline-flex items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
               >
@@ -315,6 +330,9 @@ function VideoCard({
               </button>
             </div>
           </Popover>
+          {subtitleOpen ? (
+            <VideoSubtitleModal video={video} onClose={() => setSubtitleOpen(false)} />
+          ) : null}
         </div>
       </div>
 
