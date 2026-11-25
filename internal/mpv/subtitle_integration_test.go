@@ -3,6 +3,7 @@
 package mpv
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -13,6 +14,88 @@ import (
 
 	"javboss/internal/subtitle"
 )
+
+func TestUploadedSubtitleCuesWithMPV(t *testing.T) {
+	if os.Getenv("JAVBOSS_TEST_MPV") == "" || os.Getenv("JAVBOSS_TEST_FFMPEG") == "" {
+		t.Skip("set JAVBOSS_TEST_MPV and JAVBOSS_TEST_FFMPEG to verify subtitle cues")
+	}
+	if os.Getenv("JAVBOSS_SUBTITLE_CUES_HELPER") != "1" {
+		// Other player tests cache a temporary MPV wrapper. Isolate the real
+		// playback check so that the wrapper's cleanup cannot affect this test.
+		executable, err := os.Executable()
+		if err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command(executable, "-test.run=^TestUploadedSubtitleCuesWithMPV$", "-test.v")
+		cmd.Env = append(os.Environ(), "JAVBOSS_SUBTITLE_CUES_HELPER=1")
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("subtitle cue playback: %v\n%s", err, output)
+		}
+		return
+	}
+	t.Setenv("MPV_PATH", os.Getenv("JAVBOSS_TEST_MPV"))
+	dir, err := os.MkdirTemp("", "jb-cues-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	embedded := filepath.Join(dir, "embedded.srt")
+	if err := os.WriteFile(embedded, []byte("1\n00:00:00,000 --> 00:00:20,000\nEmbedded subtitle\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	media := filepath.Join(dir, "movie.mkv")
+	ffmpeg := exec.Command(os.Getenv("JAVBOSS_TEST_FFMPEG"), "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=black:s=320x180:r=10:d=20", "-i", embedded, "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:s", "srt", "-metadata:s:s:0", "language=eng", "-disposition:s:0", "default", media)
+	if output, err := ffmpeg.CombinedOutput(); err != nil {
+		t.Fatalf("generate video: %v: %s", err, output)
+	}
+	file, err := subtitle.Save(dir, 42, "上传.srt", strings.NewReader("1\n00:00:00,000 --> 00:00:20,000\n上传的字幕内容\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	endpoint := filepath.Join(dir, "mpv.sock")
+	cmd, err := buildCommandArgs(media, PlayOptions{DataDir: dir, VideoID: 42}, endpoint, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd.Args = append([]string{cmd.Path, "--vo=null", "--ao=null", "--pause=yes", "--watch-later-directory=" + filepath.Join(dir, "watch-later")}, cmd.Args[1:]...)
+	var output bytes.Buffer
+	cmd.Stderr = &output
+	cmd.Stdout = &output
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
+	if err := waitForIPCReady(endpoint); err != nil {
+		t.Fatalf("wait for player: %v", err)
+	}
+	waitMPVTestProperty(t, endpoint, "path", media)
+	waitMPVTestProperty(t, endpoint, "track-list/count", float64(3))
+	tracks, err := queryIPCCommand(endpoint, []any{"get_property", "track-list"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed []struct {
+		ExternalFilename string `json:"external-filename"`
+		Selected         bool   `json:"selected"`
+	}
+	if err := json.Unmarshal(tracks, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	selected := false
+	for _, track := range parsed {
+		if track.ExternalFilename == file.Path && track.Selected {
+			selected = true
+		}
+	}
+	if !selected {
+		t.Fatalf("uploaded subtitle is not selected: %s", tracks)
+	}
+	if err := runIPCCommand(endpoint, []any{"seek", 1, "absolute+exact"}); err != nil {
+		t.Fatal(err)
+	}
+	waitMPVTestProperty(t, endpoint, "sub-visibility", true)
+	waitMPVTestProperty(t, endpoint, "sub-text", "上传的字幕内容")
+}
 
 func TestUploadedSubtitlesWithMPV(t *testing.T) {
 	path := os.Getenv("JAVBOSS_TEST_MPV")

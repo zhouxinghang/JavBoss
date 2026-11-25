@@ -112,6 +112,9 @@ export {
   deleteDirectory,
   processDirectory,
   scanDirectory,
+  scanDirectoryCleanup,
+  deleteDirectoryCleanupFiles,
+  directoryCleanupPreviewUrl,
 } from '@/features/directories/api'
 export {
   fetchDownloaderSettings,

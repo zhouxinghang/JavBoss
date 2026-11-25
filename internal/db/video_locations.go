@@ -363,6 +363,107 @@ func ReconcileAllVideoPaths(ctx context.Context) error {
 	return nil
 }
 
+// DirectoryCleanupVideoMeta holds lightweight metadata for active video locations
+// inside one directory, used by the duplicate-file cleanup scanner.
+type DirectoryCleanupVideoMeta struct {
+	LocationID        int64
+	VideoID           int64
+	RelativePath      string
+	JavID             *int64
+	JavCode           string
+	JavTitle          string
+	JavZhTitle        string
+	DurationSec       int64
+	Fingerprint       string
+	JavScrapeOverride string
+}
+
+// ListDirectoryCleanupVideoMetadata returns active video location metadata for one directory,
+// keyed by cleaned slash-separated relative path.
+func ListDirectoryCleanupVideoMetadata(ctx context.Context, directoryID int64) (map[string]DirectoryCleanupVideoMeta, error) {
+	if directoryID <= 0 {
+		return nil, errors.New("directory id cannot be zero")
+	}
+	if common.DB == nil {
+		return nil, nil
+	}
+	var rows []DirectoryCleanupVideoMeta
+	if err := common.DB.WithContext(ctx).
+		Table("video_location vl").
+		Select(`vl.id AS location_id,
+			vl.video_id AS video_id,
+			vl.relative_path AS relative_path,
+			vl.jav_id AS jav_id,
+			COALESCE(j.code, '') AS jav_code,
+			COALESCE(j.title, '') AS jav_title,
+			COALESCE(j.zh_title, '') AS jav_zh_title,
+			v.duration_sec AS duration_sec,
+			COALESCE(v.fingerprint, '') AS fingerprint,
+			COALESCE(v.jav_scrape_override, '') AS jav_scrape_override`).
+		Joins("JOIN video v ON v.id = vl.video_id").
+		Joins("LEFT JOIN jav j ON j.id = vl.jav_id").
+		Where("vl.directory_id = ?", directoryID).
+		Where("COALESCE(vl.is_delete, 0) = 0").
+		Scan(&rows).Error; err != nil {
+		return nil, fmt.Errorf("load directory cleanup video metadata: %w", err)
+	}
+	result := make(map[string]DirectoryCleanupVideoMeta, len(rows))
+	for i := range rows {
+		key := cleanRelativePathForDB(rows[i].RelativePath)
+		if key == "" {
+			continue
+		}
+		rows[i].RelativePath = key
+		result[key] = rows[i]
+	}
+	return result, nil
+}
+
+// HideDirectoryVideoLocationsByPaths marks matching active locations in one directory as deleted
+// and returns the number of rows updated.
+func HideDirectoryVideoLocationsByPaths(ctx context.Context, directoryID int64, relativePaths []string) (int64, error) {
+	if directoryID <= 0 || len(relativePaths) == 0 || common.DB == nil {
+		return 0, nil
+	}
+	cleaned := make([]string, 0, len(relativePaths))
+	seen := make(map[string]struct{}, len(relativePaths))
+	for _, raw := range relativePaths {
+		p := cleanRelativePathForDB(raw)
+		if p == "" {
+			continue
+		}
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		cleaned = append(cleaned, p)
+	}
+	if len(cleaned) == 0 {
+		return 0, nil
+	}
+	const batchSize = 400
+	var hidden int64
+	err := common.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for start := 0; start < len(cleaned); start += batchSize {
+			batch := cleaned[start:min(start+batchSize, len(cleaned))]
+			res := tx.Model(&models.VideoLocation{}).
+				Where("directory_id = ?", directoryID).
+				Where("relative_path IN ?", batch).
+				Where("COALESCE(is_delete, 0) = 0").
+				Update("is_delete", true)
+			if res.Error != nil {
+				return res.Error
+			}
+			hidden += res.RowsAffected
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("hide directory video locations by paths: %w", err)
+	}
+	return hidden, nil
+}
+
 func cleanRelativePathForDB(p string) string {
 	p = strings.TrimSpace(p)
 	if p == "" {

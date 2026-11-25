@@ -1097,6 +1097,7 @@ export default function GlobalSettingsModal({
           onProcess={onProcessDirectory}
           onScan={onScanDirectory}
           onRefresh={onRefreshDirectories}
+          onToast={onToast}
           serverOS={serverOS}
         />
       </section>

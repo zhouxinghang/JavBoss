@@ -156,6 +156,11 @@ func isISOBMFFHeader(buf []byte) bool {
 	return boxSize == 1 || boxSize >= 16
 }
 
+// HasVideoExtension reports whether ext is a known video file extension.
+func HasVideoExtension(ext string) bool {
+	return hasVideoExtension(ext)
+}
+
 func hasVideoExtension(ext string) bool {
 	switch strings.ToLower(strings.TrimSpace(ext)) {
 	case ".3g2", ".3gp",

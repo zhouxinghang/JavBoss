@@ -57,6 +57,9 @@ func RegisterRoutes(router gin.IRoutes) {
 	router.GET("/directories/browse", browseDirectories)
 	router.POST("/directories/:id/process", processDirectory)
 	router.POST("/directories/:id/scan", scanDirectory)
+	router.POST("/directories/:id/cleanup/scan", scanDirectoryCleanup)
+	router.POST("/directories/:id/cleanup/delete", deleteDirectoryCleanupFiles)
+	router.GET("/directories/:id/cleanup/preview", previewDirectoryCleanupFile)
 	router.PATCH("/directories/:id", updateDirectory)
 
 	router.GET("/tags", listTags)

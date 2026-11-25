@@ -8,6 +8,7 @@ import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import { CircularProgress, IconButton, Switch, Tooltip } from '@mui/material'
 
+import DirectoryCleanupModal from '@/features/directories/components/DirectoryCleanupModal'
 import DirectoryPickerModal from '@/features/directories/components/DirectoryPickerModal'
 import AppModal from '@/shared/ui/AppModal'
 import { useStore } from '@/store'
@@ -18,6 +19,7 @@ import { getErrorMessage } from '@/utils/errors'
 const DIRECTORY_PROCESS_SIDECAR = 'sidecar'
 const DIRECTORY_PROCESS_ORGANIZE = 'organize'
 const DIRECTORY_PROCESS_ORGANIZE_WITH_SIDECAR = 'organize_with_sidecar'
+const DIRECTORY_PROCESS_CLEANUP = 'cleanup'
 const DIRECTORY_PROCESS_LAYOUT_PREFIX = 'prefix'
 const DIRECTORY_PROCESS_LAYOUT_CODE = 'code'
 const DIRECTORY_PROCESS_LAYOUT_IDOL = 'idol'
@@ -45,6 +47,14 @@ const directoryProcessOptions = () => [
     description: zh(
       '移动视频及同名附属文件，保留原文件名，然后生成媒体库可用的 NFO 和封面。',
       'Move videos and matching companion files while preserving filenames, then generate media-library-compatible NFO files and covers.'
+    ),
+  },
+  {
+    mode: DIRECTORY_PROCESS_CLEANUP,
+    title: zh('垃圾文件清理', 'Junk File Cleanup'),
+    description: zh(
+      '按类别扫描系统垃圾、文本和网页存档、种子文件、Windows 快捷方式、疑似广告图片及下载残留，并支持按番号筛选重复文件后清理删除。',
+      'Scan system junk, text and web archives, torrents, Windows shortcuts, suspected ad images, and download leftovers, plus filter duplicate videos by JAV code for deletion.'
     ),
   },
 ]
@@ -195,6 +205,7 @@ export default function DirectoryManager({
   onProcess,
   onScan,
   onRefresh,
+  onToast,
   serverOS = '',
 }) {
   const useHostPaths = useStore((state) => hostPathsEnabled(state.config))
@@ -222,6 +233,7 @@ export default function DirectoryManager({
   const [toolDirectory, setToolDirectory] = useState(null)
   const [toolMode, setToolMode] = useState(DIRECTORY_PROCESS_SIDECAR)
   const [toolLayout, setToolLayout] = useState(DIRECTORY_PROCESS_LAYOUT_PREFIX)
+  const [cleanupDirectory, setCleanupDirectory] = useState(null)
   const pathExample = {
     windows: 'D:\\Videos',
     darwin: '/Volumes/Videos',
@@ -257,6 +269,7 @@ export default function DirectoryManager({
       setToolDirectory(null)
       setToolMode(DIRECTORY_PROCESS_SIDECAR)
       setToolLayout(DIRECTORY_PROCESS_LAYOUT_PREFIX)
+      setCleanupDirectory(null)
     }
   }, [open])
 
@@ -891,7 +904,8 @@ export default function DirectoryManager({
               </label>
             ))}
           </div>
-          {toolMode !== DIRECTORY_PROCESS_SIDECAR && (
+          {(toolMode === DIRECTORY_PROCESS_ORGANIZE ||
+            toolMode === DIRECTORY_PROCESS_ORGANIZE_WITH_SIDECAR) && (
             <div className="mt-4">
               <div className="text-sm font-medium text-zinc-900">
                 {zh('整理方式', 'Organization layout')}
@@ -934,7 +948,8 @@ export default function DirectoryManager({
               )}
             </div>
           )}
-          {toolMode !== DIRECTORY_PROCESS_SIDECAR && (
+          {(toolMode === DIRECTORY_PROCESS_ORGANIZE ||
+            toolMode === DIRECTORY_PROCESS_ORGANIZE_WITH_SIDECAR) && (
             <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
               {zh(
                 '整理后的文件统一位于 “所选目录/JAV” 中。任务完成后，会生成 “所选目录/JavBoss-整理报告.txt”，可查看未整理文件及失败原因。',
@@ -952,14 +967,32 @@ export default function DirectoryManager({
             </button>
             <button
               type="button"
-              onClick={() => handleProcess(toolDirectory, toolMode, toolLayout)}
+              onClick={() => {
+                if (toolMode === DIRECTORY_PROCESS_CLEANUP) {
+                  setCleanupDirectory(toolDirectory)
+                  setToolDirectory(null)
+                  return
+                }
+                handleProcess(toolDirectory, toolMode, toolLayout)
+              }}
               disabled={toolDirectoryWorking}
               className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-60"
             >
-              {zh('执行', 'Run')}
+              {toolMode === DIRECTORY_PROCESS_CLEANUP
+                ? zh('打开清理', 'Open Cleanup')
+                : zh('执行', 'Run')}
             </button>
           </div>
         </AppModal>
+      )}
+      {cleanupDirectory && (
+        <DirectoryCleanupModal
+          directory={cleanupDirectory}
+          serverOS={serverOS}
+          onClose={() => setCleanupDirectory(null)}
+          onRefresh={onRefresh}
+          onToast={onToast}
+        />
       )}
       {scanSettingsDirectory && (
         <AppModal

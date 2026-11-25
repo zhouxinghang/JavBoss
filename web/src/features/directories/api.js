@@ -1,4 +1,4 @@
-import { apiFetch, apiError, jsonHeaders } from '@/api/client'
+import { apiFetch, apiError, jsonHeaders, parseJSONResponse } from '@/api/client'
 import { zh } from '@/utils/i18n'
 
 export async function fetchDirectories() {
@@ -79,4 +79,47 @@ export async function scanDirectory(id, { force = false } = {}) {
     throw await apiError(res)
   }
   return res.json()
+}
+
+export async function scanDirectoryCleanup(
+  id,
+  { categories, includeDuplicates = true, signal } = {}
+) {
+  const payload = { include_duplicates: Boolean(includeDuplicates) }
+  if (Array.isArray(categories)) {
+    payload.categories = categories
+  }
+  const res = await apiFetch(`/directories/${id}/cleanup/scan`, {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify(payload),
+    signal,
+  })
+  if (!res.ok) {
+    throw await apiError(res)
+  }
+  return parseJSONResponse(res)
+}
+
+export async function deleteDirectoryCleanupFiles(
+  id,
+  { paths = [], removeEmptyDirs = false } = {}
+) {
+  const res = await apiFetch(`/directories/${id}/cleanup/delete`, {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({
+      paths,
+      remove_empty_dirs: Boolean(removeEmptyDirs),
+    }),
+  })
+  if (!res.ok) {
+    throw await apiError(res)
+  }
+  return parseJSONResponse(res)
+}
+
+export function directoryCleanupPreviewUrl(id, relativePath) {
+  const params = new URLSearchParams({ path: String(relativePath || '') })
+  return `/directories/${id}/cleanup/preview?${params}`
 }
